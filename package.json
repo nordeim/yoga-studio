@@ -1,8 +1,8 @@
 {
-  "name": "fitness-studio",
+  "name": "yoga-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "IRONFORGE — high-end fitness studio brand official website. Hardcore, motivating, professional. Built with Next.js 16, React 19, Tailwind CSS v4, Drizzle ORM, Auth.js v5, Inngest, Stripe, Replicate.",
+  "description": "IRONFORGE — high-end yoga studio brand official website. Hardcore, motivating, professional. Built with Next.js 16, React 19, Tailwind CSS v4, Drizzle ORM, Auth.js v5, Inngest, Stripe, Replicate.",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0",

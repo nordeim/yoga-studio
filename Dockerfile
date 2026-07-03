@@ -14,7 +14,7 @@
 #   Stage 3 (runtime):  Copy build output + prod deps only, run `next start`
 #
 # Security:
-#   - Non-root user (fitnesstudio, uid 1001)
+#   - Non-root user (yogatudio, uid 1001)
 #   - No dev dependencies in the runtime image
 #   - FFmpeg installed for video assembly (Step 6 of the Inngest pipeline)
 #   - Healthcheck hits /api/health (DB + FFmpeg + config check)
@@ -87,11 +87,11 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/node_modules/.next ./node_modules/.next
 
 # Create a non-root user (security best practice — avoids running as root)
-RUN addgroup -g 1001 -S fitnesstudio && \
-    adduser -S fitnesstudio -G fitnesstudio -u 1001 && \
-    chown -R fitnesstudio:fitnesstudio /app
+RUN addgroup -g 1001 -S yogatudio && \
+    adduser -S yogatudio -G yogatudio -u 1001 && \
+    chown -R yogatudio:yogatudio /app
 
-USER fitnesstudio
+USER yogatudio
 
 # Expose Next.js default port
 EXPOSE 3000

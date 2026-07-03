@@ -4,7 +4,7 @@
 # See also: docker-compose-nginx.yml for optional HTTPS proxy.
 
 networks:
-  fitnesstudio-network:
+  yogatudio-network:
     driver: bridge
 
 services:
@@ -13,11 +13,11 @@ services:
   # ==========================================================================
   postgres:
     image: postgres:17-alpine
-    container_name: fitnesstudio-postgres-dev
+    container_name: yogatudio-postgres-dev
     environment:
-      POSTGRES_DB: fitnesstudio_dev
-      POSTGRES_USER: fitnesstudio
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-fitnesstudio_dev_password}
+      POSTGRES_DB: yogatudio_dev
+      POSTGRES_USER: yogatudio
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yogatudio_dev_password}
       POSTGRES_HOST_AUTH_METHOD: trust # dev convenience
       TZ: UTC
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -33,13 +33,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-extensions.sql:/docker-entrypoint-initdb.d/01-init-extensions.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fitnesstudio -d fitnesstudio_dev"]
+      test: ["CMD-SHELL", "pg_isready -U yogatudio -d yogatudio_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - fitnesstudio-network
+      - yogatudio-network
     restart: unless-stopped
 
   # ==========================================================================
@@ -47,7 +47,7 @@ services:
   # ==========================================================================
   redis:
     image: redis:7-alpine
-    container_name: fitnesstudio-redis-dev
+    container_name: yogatudio-redis-dev
     command: >
       redis-server
       --maxmemory 512mb
@@ -66,7 +66,7 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - fitnesstudio-network
+      - yogatudio-network
     restart: unless-stopped
 
   # ==========================================================================
@@ -77,12 +77,12 @@ services:
       context: .
       dockerfile: Dockerfile.dev
       target: development
-    container_name: fitnesstudio-web-dev
+    container_name: yogatudio-web-dev
     env_file:
       - .env.docker
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://fitnesstudio:${DB_PASSWORD:-fitnesstudio_dev_password}@postgres:5432/fitnesstudio_dev
+      DATABASE_URL: postgresql://yogatudio:${DB_PASSWORD:-yogatudio_dev_password}@postgres:5432/yogatudio_dev
       REDIS_URL: redis://redis:6379
       # Override any vars from .env.docker if needed
     ports:
@@ -98,7 +98,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - fitnesstudio-network
+      - yogatudio-network
     restart: unless-stopped
     # CMD is defined in Dockerfile
 

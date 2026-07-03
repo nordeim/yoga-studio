@@ -1,6 +1,6 @@
 $ grep ^DATABASE .env.local
-DATABASE_URL=postgresql://fitnesstudio:fitnesstudio_dev_password@localhost:5432/fitnesstudio_dev
-DATABASE_URL_UNPOOLED=postgresql://fitnesstudio:fitnesstudio_dev_password@localhost:5432/fitnesstudio_dev
+DATABASE_URL=postgresql://yogatudio:yogatudio_dev_password@localhost:5432/yogatudio_dev
+DATABASE_URL_UNPOOLED=postgresql://yogatudio:yogatudio_dev_password@localhost:5432/yogatudio_dev
 
 $ cat docker-compose-dev.yml
 
@@ -13,7 +13,7 @@ $ cat docker-compose-dev.yml
 # See also: docker-compose-nginx.yml for optional HTTPS proxy.
 
 networks:
-fitnesstudio-network:
+yogatudio-network:
 driver: bridge
 
 services:
@@ -26,11 +26,11 @@ services:
 
 postgres:
 image: postgres:17-alpine
-container_name: fitnesstudio-postgres-dev
+container_name: yogatudio-postgres-dev
 environment:
-POSTGRES_DB: fitnesstudio_dev
-POSTGRES_USER: fitnesstudio
-POSTGRES_PASSWORD: ${DB_PASSWORD:-fitnesstudio_dev_password}
+POSTGRES_DB: yogatudio_dev
+POSTGRES_USER: yogatudio
+POSTGRES_PASSWORD: ${DB_PASSWORD:-yogatudio_dev_password}
 POSTGRES_HOST_AUTH_METHOD: trust # dev convenience
 TZ: UTC
 PGDATA: /var/lib/postgresql/data/pgdata
@@ -43,12 +43,12 @@ postgres
 ports: - "127.0.0.1:5432:5432" # bind only to loopback for local tooling
 volumes: - postgres_data:/var/lib/postgresql/data - ./scripts/init-extensions.sql:/docker-entrypoint-initdb.d/01-init-extensions.sql:ro
 healthcheck:
-test: ["CMD-SHELL", "pg_isready -U fitnesstudio -d fitnesstudio_dev"]
+test: ["CMD-SHELL", "pg_isready -U yogatudio -d yogatudio_dev"]
 interval: 10s
 timeout: 5s
 retries: 5
 start_period: 10s
-networks: - fitnesstudio-network
+networks: - yogatudio-network
 restart: unless-stopped
 
 # ==========================================================================
@@ -59,7 +59,7 @@ restart: unless-stopped
 
 redis:
 image: redis:7-alpine
-container_name: fitnesstudio-redis-dev
+container_name: yogatudio-redis-dev
 command: >
 redis-server
 --maxmemory 512mb
@@ -75,7 +75,7 @@ interval: 10s
 timeout: 3s
 retries: 5
 start_period: 5s
-networks: - fitnesstudio-network
+networks: - yogatudio-network
 restart: unless-stopped
 
 # ==========================================================================
@@ -89,11 +89,11 @@ build:
 context: .
 dockerfile: Dockerfile.dev
 target: development
-container_name: fitnesstudio-web-dev
+container_name: yogatudio-web-dev
 env_file: - .env.docker
 environment:
 NODE_ENV: development
-DATABASE_URL: postgresql://fitnesstudio:${DB_PASSWORD:-fitnesstudio_dev_password}@postgres:5432/fitnesstudio_dev
+DATABASE_URL: postgresql://yogatudio:${DB_PASSWORD:-yogatudio_dev_password}@postgres:5432/yogatudio_dev
 REDIS_URL: redis://redis:6379 # Override any vars from .env.docker if needed
 ports: - "3000:3000"
 volumes: - .:/app - /app/node_modules # anonymous volume to keep host node_modules out - .next:/app/.next # preserve Next.js build cache - pnpm_store:/root/.local/share/pnpm/store
@@ -102,7 +102,7 @@ postgres:
 condition: service_healthy
 redis:
 condition: service_healthy
-networks: - fitnesstudio-network
+networks: - yogatudio-network
 restart: unless-stopped # CMD is defined in Dockerfile
 
 # ==========================================================================
@@ -121,5 +121,5 @@ driver: local
 
 $ docker ps
 CONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES
-c4608eb44f33 postgres:17-alpine "docker-entrypoint.s…" 7 minutes ago Up 7 minutes (healthy) 127.0.0.1:5432->5432/tcp fitnesstudio-postgres-dev
-d8e27b716cd5 redis:7-alpine "docker-entrypoint.s…" 7 minutes ago Up 7 minutes (healthy) 127.0.0.1:6379->6379/tcp fitnesstudio-redis-dev
+c4608eb44f33 postgres:17-alpine "docker-entrypoint.s…" 7 minutes ago Up 7 minutes (healthy) 127.0.0.1:5432->5432/tcp yogatudio-postgres-dev
+d8e27b716cd5 redis:7-alpine "docker-entrypoint.s…" 7 minutes ago Up 7 minutes (healthy) 127.0.0.1:6379->6379/tcp yogatudio-redis-dev
