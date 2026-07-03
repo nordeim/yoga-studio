@@ -1,0 +1,37 @@
+# syntax=docker.io/docker/dockerfile:1.7-labs
+# Stage 1: Base – install dependencies
+FROM node:24-alpine AS base
+
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Install system dependencies (curl for healthcheck, ffmpeg for video assembly)
+RUN apk add --no-cache curl ffmpeg
+
+WORKDIR /app
+
+# Copy package manifests and lockfile first for better caching
+COPY package.json pnpm-lock.yaml ./
+
+# Install all dependencies (including dev)
+RUN pnpm install --frozen-lockfile
+
+# Stage 2: Development – non‑root user, start dev server
+FROM base AS development
+
+# Create non‑root user (security best practice)
+RUN addgroup -g 1001 -S fitnesstudio && \
+    adduser -S fitnesstudio -G fitnesstudio -u 1001 && \
+    chown -R fitnesstudio:fitnesstudio /app
+
+USER fitnesstudio
+
+# Expose Next.js default port
+EXPOSE 3000
+
+# Healthcheck — hits the marketing page (200 = healthy)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
+# Start Next.js in development mode with Turbopack
+CMD ["pnpm", "dev", "--", "--hostname", "0.0.0.0"]

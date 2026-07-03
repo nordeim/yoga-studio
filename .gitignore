@@ -1,0 +1,57 @@
+# ── Original repo entries (preserved) ──
+node_modules/
+.next/
+venv/
+.venv/
+.venv
+vendor/
+bak.git/
+plan/
+backup/
+nohup.out
+.windsurfrules
+upload/
+.agent
+.gemini
+.claude
+.agents
+
+# ── Next.js ──
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# ── Production ──
+/build
+
+# ── Misc ──
+.DS_Store
+*.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── Debug logs ──
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Env files (HIGH: never commit secrets) ──
+.env*
+!.env.example
+
+# ── Vercel ──
+.vercel
+
+# ── Playwright ──
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# ── Vitest ──
+/coverage/
+
+# ── Husky (internal) ──
+.husky/_/

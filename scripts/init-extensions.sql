@@ -1,0 +1,3 @@
+-- PostgreSQL extensions for StoryIntoVideo
+-- gen_random_uuid() is built into PostgreSQL 13+ and requires no extension.
+-- No additional extensions are needed for the current schema.

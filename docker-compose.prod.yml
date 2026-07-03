@@ -1,0 +1,43 @@
+# =============================================================================
+# StoryIntoVideo — Production Docker Compose
+# =============================================================================
+#
+# NF-1 fix: Production deployment configuration.
+#
+# This compose file defines ONLY the `web` service. Database (Neon Postgres)
+# and rate-limiting (Upstash Redis) are managed external services — they are
+# NOT defined here (unlike docker-compose-dev.yml which spins up local
+# postgres + redis for development).
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Env vars: mount .env.local (production values) via the env_file directive.
+# All 27 required env vars must be set — see .env.example for the full list.
+#
+# Deployment runbook: docs/DEPLOYMENT_RUNBOOK.md
+# =============================================================================
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitnesstudio-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    # NOTE: No volumes needed — the app is stateless. All persistent state
+    # lives in Neon (DB), Upstash (Redis), and Cloudflare R2 (media).
+    # The /tmp directory is ephemeral and used only for FFmpeg intermediate
+    # files (cleaned up after each video assembly Step 6 run).
