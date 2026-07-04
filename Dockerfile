@@ -64,7 +64,7 @@ RUN bun run build
 
 # ── Stage 3: runtime ─────────────────────────────────────────────────────────
 # Minimal runtime image: only the standalone build output + production deps.
-FROM oven/bun:1-alpine AS runtime
+FROM oven/bun:latest AS runtime
 
 # curl for the healthcheck.
 RUN apk add --no-cache curl
