@@ -2,9 +2,9 @@
 backup/
 venv/
 .venv/
-.agents
-.claude
-.gemini
+.agents/
+.claude/
+.gemini/
 
 # dependencies
 node_modules
