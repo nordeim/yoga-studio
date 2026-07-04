@@ -24,7 +24,7 @@
 
 # ── Stage 1: deps ────────────────────────────────────────────────────────────
 # Install all dependencies (including dev) — the builder stage needs them.
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:latest AS deps
 
 # curl is needed for the healthcheck in later stages; bash for the build script.
 RUN apk add --no-cache curl
