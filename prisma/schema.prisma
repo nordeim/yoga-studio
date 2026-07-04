@@ -1,0 +1,29 @@
+// Stillwater Yoga Studio — Prisma schema
+// SQLite for dev. Schema is portable to Postgres for prod by changing the
+// datasource provider.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A "first class free" lead — captured from the homepage form.
+/// No account, no auth. Iris writes them back by hand within a day.
+model Lead {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  preferredDay    String
+  notes           String?
+  status          String   @default("pending") // pending | replied | booked | archived
+  ipHash          String?  // SHA-256 of IP for rate-limit forensics, never the raw IP
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

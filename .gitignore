@@ -1,57 +1,60 @@
-# ── Original repo entries (preserved) ──
-node_modules/
-.next/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+backup/
 venv/
 .venv/
-.venv
-vendor/
-bak.git/
-plan/
-backup/
-nohup.out
-.windsurfrules
-upload/
-.agent
-.gemini
-.claude
 .agents
+.claude
+.gemini
 
-# ── Next.js ──
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
 /out/
-next-env.d.ts
-*.tsbuildinfo
 
-# ── Production ──
+# production
 /build
 
-# ── Misc ──
+# misc
 .DS_Store
 *.pem
-.idea/
-.vscode/*
-!.vscode/extensions.json
 
-# ── Debug logs ──
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# ── Env files (HIGH: never commit secrets) ──
+# env files (can opt-in for committing if needed)
 .env*
-!.env.example
 
-# ── Vercel ──
+# vercel
 .vercel
 
-# ── Playwright ──
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
 
-# ── Vitest ──
-/coverage/
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
 
-# ── Husky (internal) ──
-.husky/_/
+server.log
+# Skills directory
+/skills/
