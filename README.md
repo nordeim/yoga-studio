@@ -1,3 +1,5 @@
+<img width="1280" height="577" alt="image" src="https://github.com/user-attachments/assets/d4d94dd3-d6d5-4962-8065-56c41385e359" />
+
 # Stillwater · A Yoga Studio in Cobble Hill
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.1-black?logo=next.js)
