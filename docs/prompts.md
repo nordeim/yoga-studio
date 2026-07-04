@@ -1,12 +1,12 @@
-have you actually read the content of the relevant skills included in the 'git clone'? If not, please read them to extract key methodology, design guide, learnings, patterns and anti-patterns relevant to the 'Master Execution Plan.md'. Next, meticulously plan to proceed with executing 'Master Execution Plan.md' in sequence, for each step/phase of the plan, start by creating a detailed ToDo list before creating or updating the code files. scan the cloned folder to identify scaffolding files and then updating them to be compatible to the intended codebase.
+Have you actually read the content of the relevant skills included in the 'git clone'? If not, please read them to extract key methodology, design guide, learnings, patterns and anti-patterns relevant to the 'Master Execution Plan.md'. Next, meticulously plan to proceed with executing 'Master Execution Plan.md' in sequence, for each step/phase of the plan, start by creating a detailed ToDo list before creating or updating the code files. scan the cloned folder to identify scaffolding files and then updating them to be compatible to the intended codebase.
 
 ---
 
-awesome meticulous job so far. please keep up the good work. now, please meticulously plan to distill your knowlede/know-how, expertise, experiences and lessons learnt from completing this project into a project specific skill `stillwater_SKILL.md`. use the included `skills/to-distill-project-into-skill/SKILL.md` to help you with the project knowledge and expertise distillation into a SKILL.md file.
+Awesome meticulous job so far. please keep up the good work. now, please meticulously plan to distill your knowlede/know-how, expertise, experiences and lessons learnt from completing this project into a project specific skill `stillwater_SKILL.md`. use the included `skills/to-distill-project-into-skill/SKILL.md` to help you with the project knowledge and expertise distillation into a SKILL.md file.
 
 ---
 
-awesome meticulous job so far. please keep up the good work. now, please meticulously plan to distill your knowlede/know-how, expertise, experiences and lessons learnt from the remediation session into a project specific skill `stillwater_SKILL.md`. use the included `skills/to-distill-project-into-skill/SKILL.md` to help you with the project knowledge and expertise distillation into a SKILL.md file.
+Awesome meticulous job so far. Please keep up the good work. Now, please meticulously plan to create the project documentation files `CLAUDE.md` , `AGENTS.md` and `README.md` using the respective skills `claude-md` , `agents-md` and `readme-md` which can be found in the included `skills/` folder.
 
 ---
 
