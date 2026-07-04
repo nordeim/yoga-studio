@@ -18,7 +18,7 @@
 # =============================================================================
 
 # ── Stage 1: Base — install dependencies ─────────────────────────────────────
-FROM oven/bun:1-alpine AS base
+FROM oven/bun:latest AS base
 
 # curl for the healthcheck.
 RUN apk add --no-cache curl
