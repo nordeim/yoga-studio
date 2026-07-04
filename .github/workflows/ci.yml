@@ -20,34 +20,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.26.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
+          bun-version: latest
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Lint (eslint .)
-        run: pnpm lint
+        run: bun run lint
 
       - name: Typecheck (tsc --noEmit)
-        run: pnpm typecheck
+        run: bun run typecheck
 
       - name: Unit tests (vitest run)
-        run: pnpm test
-
-      - name: Format check
-        run: pnpm format:check
+        run: bun run test
 
       - name: Build (next build)
-        run: pnpm build
+        run: bun run build
         env:
           NEXT_PHASE: phase-production-build
           NODE_ENV: production

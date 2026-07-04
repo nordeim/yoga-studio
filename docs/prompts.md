@@ -6,7 +6,25 @@ awesome meticulous job so far. please keep up the good work. now, please meticul
 
 ---
 
+awesome meticulous job so far. please keep up the good work. now, please meticulously plan to distill your knowlede/know-how, expertise, experiences and lessons learnt from the remediation session into a project specific skill `stillwater_SKILL.md`. use the included `skills/to-distill-project-into-skill/SKILL.md` to help you with the project knowledge and expertise distillation into a SKILL.md file.
+
+---
+
+Awesome meticulous job so far. Please keep up the good work. Now, please meticulously plan to create a user deployment QuickStartGuide.md` to detail step-by-step commands to run to fully deploy the codebase starting from `git clone` GitHub repo, include the commands sequence to initialize and seed the database.
+Next, meticulously plan to create a tar archive of the entire (remediated) codebase, including the updated documentation but excluding the `node_modules` , `.next` , `skills` and `.git` folders, so I can download and use it to refresh my GitHub repo.
+
+---
+
+Awesome meticulous job so far. Please keep up the good work. Now, please meticulously validate the critical and high to medium severity gaps and bugs identified in your code review against the codebase to identify the root causes and the optimal fixes. then meticulously plan to create a comprehensive remediation plan with a detailed ToDo list to apply the optimal fix. Review and validate the remediation plan against the codebase to ensure alignment before proceeding to execute it meticulously. Remember to use TDD approach to make code changes. For coding best practices, you can refer to the relevant skills in the included `skills/` folder (refer to the included `skills/skills-catalog.md` for skill matching).
+
+---
+
 please meticulously plan to update @fitness-studio_SKILL.md with medium and minor gaps/issues (leave out the critical finding about `next.config.ts`). first meticulously plan to re-evaluate and re-validate the identified misalignment issues against the codebase to identify the root causes and the optimal fixes (either with the code or the documentation), then meticulously plan to create a remediation plan with a detailed ToDo list to apply the validated optimal fixes for the code or the SKILL.md file. refer to skill 'to-distill-project-into-skill' on the corrent structure and methodology for the project skill distillation.
+
+---
+
+Awesome meticulous job so far. Please keep up the good work. Now, please meticulously plan to create a user deployment QuickStartGuide.md` to detail step-by-step commands to run to fully deploy the codebase starting from `git clone` GitHub repo, include the commands sequence to initialize and seed the database.
+Next, meticulously plan to create a tar archive of the entire (remediated) codebase, including the updated documentation but excluding the `node_modules` , `.next` , `skills` and `.git` folders, so I can download and use it to refresh my GitHub repo.
 
 ---
 

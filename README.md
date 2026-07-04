@@ -187,8 +187,12 @@ bun run lint
 # Expected: (no output, exit 0)
 
 # Typecheck must pass
-npx tsc --noEmit
+bun run typecheck
 # Expected: (no output, exit 0)
+
+# Unit tests must pass
+bun run test
+# Expected: "Test Files  3 passed (3)" + "Tests  22 passed (22)"
 
 # Dev server should report ready
 tail -5 dev.log
@@ -265,7 +269,20 @@ All animations are **disabled** (not slowed) under `prefers-reduced-motion: redu
 
 ### Current state
 
-No automated test framework is wired up yet. Verification is manual via `agent-browser`:
+**Vitest** is installed with **22 unit tests** covering the First-Class-Free validation logic (Zod schema, rate limiter, honeypot). Tests live in `src/tests/unit/`.
+
+```bash
+bun run test          # run once (CI-friendly)
+bun run test:watch    # watch mode (local dev)
+```
+
+| Test file | Tests | Coverage |
+| --- | --- | --- |
+| `first-class.schema.test.ts` | 12 | Zod schema: happy path, name/email/notes/preferredDay validation |
+| `first-class.rate-limit.test.ts` | 5 | Per-IP sliding window: 3/hour limit, 4th blocked, per-IP isolation |
+| `first-class.honeypot.test.ts` | 5 | Bot detection: empty passes, non-empty rejected, whitespace rejected |
+
+Manual verification via `agent-browser` is still used for visual/e2e checks:
 
 ```bash
 agent-browser open http://localhost:3000/
@@ -277,7 +294,7 @@ agent-browser snapshot -i                     # verify all 6 sections + form fie
 
 ### Planned
 
-- **Vitest** for unit tests on `src/lib/actions/first-class.ts` (Zod schema, rate limiter, honeypot logic).
+- **`@testing-library/react` + `@testing-library/jest-dom`** for component tests on `FirstClassFree.tsx`, `Schedule.tsx`, `Hero.tsx`.
 - **Playwright + @axe-core/playwright** for e2e + accessibility scans on every page.
 
 ---
@@ -286,14 +303,19 @@ agent-browser snapshot -i                     # verify all 6 sections + form fie
 
 | Issue | Solution |
 | --- | --- |
-| `headers().get` runtime error in server action | Next.js 16 made `headers()` async. `await headers()` before calling `.get()`. See `src/lib/actions/first-class.ts:73`. |
+| `headers().get` runtime error in server action | Next.js 16 made `headers()` async. `await headers()` before calling `.get()`. See `src/lib/actions/first-class.ts`. |
+| `Cannot find module 'drizzle-kit'` (or `@playwright/test`, `vitest`) during `bun run build` | An **orphan config file** at project root imports an uninstalled dependency. `next build` type-checks ALL `.ts`/`.tsx` files. Delete the orphan config (e.g. `drizzle.config.ts`, `playwright.config.ts`) or install the dep. |
+| `Server Actions must be async functions` build error | A `'use server'` module exported a sync function. Move pure sync logic (Zod schemas, rate limiters) to a separate non-`'use server'` module. See `src/lib/first-class-validation.ts` for the pattern. |
 | `cacheLife is not a function` in tests | Mock `next/cache`: `vi.mock("next/cache", () => ({ cacheLife: vi.fn() }))`. |
 | Tailwind v4 utilities not generating | `postcss.config.mjs` must have ONLY `@tailwindcss/postcss`. Remove `autoprefixer` + `postcss-import`. |
-| `set-state-in-effect` lint error | Use `useSyncExternalStore` for external state, NOT `useEffect` + `setState`. See `src/hooks/use-reduced-motion.ts`. |
-| Zod 4 enum `errorMap` not found | API changed. Use `z.enum(values, { message: "..." })` instead of `{ errorMap: ... }`. |
+| `set-state-in-effect` lint error | Use `useSyncExternalStore` for external state, NOT `useEffect` + `setState`. See `src/hooks/use-reduced-motion.ts` and `src/hooks/use-mobile.ts`. Do NOT silence the rule in `eslint.config.mjs`. |
+| Zod 4 enum `errorMap` not found | API changed. Use `z.enum(values, { message: "..." })` instead of `{ errorMap: ... }`. See `src/lib/first-class-validation.ts`. |
 | Schedule accordion doesn't expand | The shadcn `Accordion` wrapper injects a default chevron. We use `@radix-ui/react-accordion` primitives directly with our own `+` icon. Don't swap back. |
 | Prisma `P2002` on form submit | Unique constraint on `email`. The server action handles this and returns a warm `DUPLICATE` message — not a bug. |
+| Prisma migration drift (`prisma migrate dev` fails with "Drift detected") | Run `bun run db:reset` (dev only — destroys data), then `bun run db:migrate`. Never run `db:reset` in production. |
 | Hydration mismatch on `useReducedMotion` | The hook uses `useSyncExternalStore` with `getServerSnapshot: () => false` — SSR-safe by design. If you still see mismatches, check for `typeof window === "undefined"` guards. |
+| `DATABASE_URL` points to wrong database | A parent directory's `.env` may shadow the project's `.env`. Check with `bunx prisma migrate status`. The project's `.env` should have `DATABASE_URL="file:./db/stillwater.db"`. |
+| `recharts` type errors after version bump | `recharts` was reverted from `^3.9.1` to `^2.15.4` because 3.x has breaking API changes. Do NOT bump to 3.x without updating `chart.tsx` (which was itself removed as unused). |
 
 ---
 
@@ -318,11 +340,14 @@ COMMIT → one cycle per commit
 ### Pre-commit checklist
 
 - [ ] `bun run lint` — 0 errors
-- [ ] `npx tsc --noEmit` — 0 errors
+- [ ] `bun run typecheck` — 0 errors
+- [ ] `bun run test` — all tests pass
+- [ ] `bun run build` — succeeds (run before PR, not every commit)
 - [ ] No raw hex colours in components — use design tokens
 - [ ] No `'use client'` on components that don't need it
 - [ ] Every interactive element has a `:focus-visible` ring
 - [ ] Animations respect `prefers-reduced-motion`
+- [ ] No orphan config files at project root (see Troubleshooting)
 
 ---
 

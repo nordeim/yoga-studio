@@ -7,7 +7,7 @@ description: >
   codebase, or when adapting its patterns (8-second breath-cycle hero, Radix accordion
   schedule, opt-in Web Audio chime, useActionState form with honeypot + rate limit) to
   similar calm-aesthetic marketing sites.
-version: 1.0.0
+version: 2.0.0
 project: stillwater-yoga-studio
 last_updated: 2026-07-04
 tags:
@@ -16,6 +16,7 @@ tags:
   - tailwind-v4
   - prisma
   - zod
+  - vitest
   - boutique-marketing
   - calm-aesthetic
   - wcag-aaa
@@ -26,6 +27,8 @@ tags:
 > **How to use this document:** This is the single-source-of-truth reference for the Stillwater codebase. Read §1–§3 before any work. Jump to §10 (Debugging) when something breaks. Follow §11 (Pre-Ship Checklist) before every commit. Use §15 (Coding Patterns) as copy-paste templates for new features.
 >
 > **Companion docs:** `README.md` (humans), `AGENTS.md` (compact agent instructions), `CLAUDE.md` (comprehensive conventions for Claude Code sessions). This SKILL.md is the deepest layer — it captures the *why* behind every decision, the bugs that were fixed, and the patterns that compile.
+>
+> **v2.0.0 changelog (2026-07-04):** Post-audit remediation. Added 5 new bugs (#8–#12), 6 new lessons (#11–#16), 2 new ADRs (ADR-011, ADR-012), vitest setup (22 unit tests), CI workflow documentation, and the validation-module extraction pattern. Updated §2 (39 components, vitest 4.1.9), §3 (typecheck + test commands), §6 (use-mobile refactored), §9–§13 (new audit findings), §15 (extraction pattern), Appendix C (deps removed, not just "unused"). Stale `npx tsc --noEmit` references replaced with `bun run typecheck`.
 
 ---
 
@@ -112,15 +115,17 @@ The following visual clichés are **explicitly rejected** and will fail code rev
 | Language | TypeScript | `^5.9.0` | `strict: true`, `noImplicitAny: false` (scaffold default — do NOT change without explicit request). Path alias `@/*` → `./src/*`. |
 | Styling | Tailwind CSS | `^4.3.0` | CSS-first `@theme` config in `globals.css`. NO `tailwind.config.js` for app tokens — the root `tailwind.config.ts` is the empty scaffold default. |
 | PostCSS | `@tailwindcss/postcss` | `^4` | ONLY plugin. Do NOT add `autoprefixer` or `postcss-import` — they break v4. |
-| Components | shadcn/ui (New York) + Radix UI | latest | 50+ primitives in `src/components/ui/`. The Schedule accordion uses `@radix-ui/react-accordion` primitives DIRECTLY, not the shadcn wrapper. |
+| Components | shadcn/ui (New York) + Radix UI | latest | 39 primitives in `src/components/ui/` (was 48 — 9 unused scaffold components removed in v2.0.0: chart, sonner, carousel, calendar, form, resizable, input-otp, command, drawer). The Schedule accordion uses `@radix-ui/react-accordion` primitives DIRECTLY, not the shadcn wrapper. |
 | Icons | lucide-react | `^0.525.0` | Used sparingly — the design prefers custom SVG for the brand mark and expand icon. |
 | Fonts | Fraunces + Inter | via `next/font/google` | `display: "swap"`, `variable: "--font-fraunces"` / `"--font-inter"`. NEVER `@fontsource/*`. |
 | Database ORM | Prisma | `^6.11.1` (resolved 6.19.2) | SQLite for dev (`provider = "sqlite"`). Portable to Postgres by changing `provider` to `"postgresql"`. |
 | Database | SQLite | via `bun run db:push` | File at `./db/stillwater.db`. Committed for dev convenience — clear before prod deploy. |
-| Validation | Zod | `^4.0.2` | Enum API changed: `z.enum(values, { message })` not `{ errorMap }`. |
+| Validation | Zod | `^4.0.2` | Enum API changed: `z.enum(values, { message })` not `{ errorMap }`. Schema lives in `src/lib/first-class-validation.ts` (extracted from the server action — see ADR-011). |
 | Audio | Web Audio API | browser-native | No library. `AudioContext` instantiated ONLY on explicit user gesture. |
-| Package manager | Bun | latest | `bun install`, `bun run dev`. Also compatible with pnpm/npm. |
+| Testing | Vitest | `^4.1.9` (dev) | 22 unit tests in `src/tests/unit/`. Config at `vitest.config.ts`. Setup at `src/tests/setup.ts` (matchMedia stub for jsdom). |
+| Package manager | Bun | latest | `bun install`, `bun run dev`. Also compatible with pnpm/npm. Lockfile: `bun.lock`. |
 | Linter | ESLint | `^9` + `eslint-config-next` | `eslint.config.mjs` extends `core-web-vitals` + `typescript`. Many strict rules disabled by scaffold — project convention is to follow the STRICTER rule. |
+| CI | GitHub Actions | `.github/workflows/ci.yml` | Runs on push/PR to `main`: lint → typecheck → test → build. Uses `oven-sh/setup-bun@v2`. |
 | Build | Next.js standalone | — | `bun run build` copies `.next/static` + `public` into `.next/standalone/` for Docker deployment. |
 
 ### 2.2 Environment variables
@@ -166,7 +171,11 @@ bun run dev
 bun run lint
 
 # Typecheck must pass (0 errors)
-npx tsc --noEmit
+bun run typecheck
+
+# Unit tests must pass (22 tests)
+bun run test
+# Expected: "Test Files  3 passed (3)" + "Tests  22 passed (22)"
 
 # Dev server should report ready
 tail -5 dev.log
@@ -246,6 +255,37 @@ Extends `eslint-config-next/core-web-vitals` + `eslint-config-next/typescript`. 
 ```
 
 Style is **New York** (not Default). `rsc: true` enables React Server Components support.
+
+#### `vitest.config.ts` (v2.0.0)
+
+```typescript
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/tests/setup.ts'],
+    include: [
+      'src/tests/unit/**/*.test.{ts,tsx}',
+      'src/**/*.test.{ts,tsx}',
+    ],
+    exclude: ['node_modules/**', '.next/**', 'skills/**', 'yoga-studio/**'],
+  },
+  resolve: {
+    alias: { '@': resolve(__dirname, './src') },
+  },
+});
+```
+
+**Setup file** (`src/tests/setup.ts`) stubs `window.matchMedia` for jsdom (jsdom doesn't implement it, and the `useSyncExternalStore` hooks call it).
+
+#### `.github/workflows/ci.yml` (v2.0.0)
+
+CI runs on every push and PR to `main`. Steps: checkout → setup Bun (`oven-sh/setup-bun@v2`) → `bun install --frozen-lockfile` → `bun run lint` → `bun run typecheck` → `bun run test` → `bun run build`. All must pass for merge. Uses `concurrency` to cancel in-progress runs on the same ref.
 
 ### 3.4 Prisma setup
 
@@ -594,9 +634,41 @@ export function useBreathCycle(enabled: boolean): BreathState
 
 **Why the 8s cycle**: It's the literal cadence of a yogic inhale-exhale. The hero's `--animate-hero-breath` runs on the same 8s. The brand mark's `--animate-brand-breath` runs on the same 8s. The breath orb's `--animate-breath-orb` runs on the same 8s. They must stay in sync — that's the whole point.
 
-### 6.4 `use-mobile.ts` + `use-toast.ts` (scaffold)
+### 6.4 `use-mobile.ts` (refactored in v2.0.0) + `use-toast.ts` (scaffold)
 
-These are scaffold hooks from `create-next-app`. `use-mobile` checks viewport width. `use-toast` is the shadcn toast hook. Neither is used by Stillwater's custom code — they're kept for future use.
+**`use-mobile.ts`** was refactored in v2.0.0 from `useEffect` + `setState` to `useSyncExternalStore`, mirroring the `use-reduced-motion.ts` pattern (ADR-007). The prior implementation triggered the `react-hooks/set-state-in-effect` lint error (see Bug #4 and Bug #9).
+
+**`use-mobile.ts` IS used** — by `src/components/ui/sidebar.tsx:8,69`. (The v1.0.0 SKILL.md incorrectly claimed it was unused — see Lesson 14.)
+
+```typescript
+// src/hooks/use-mobile.ts (v2.0.0)
+import * as React from "react"
+
+const MOBILE_BREAKPOINT = 768
+const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
+
+function subscribe(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {}
+  const mql = window.matchMedia(MOBILE_QUERY)
+  mql.addEventListener("change", callback)
+  return () => mql.removeEventListener("change", callback)
+}
+
+function getSnapshot(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia(MOBILE_QUERY).matches
+}
+
+function getServerSnapshot(): boolean {
+  return false
+}
+
+export function useIsMobile() {
+  return React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+```
+
+**`use-toast.ts`** is a scaffold hook (shadcn) — kept because `Toaster` is rendered in `layout.tsx:77`, though `useToast` is never called by app code.
 
 ---
 
@@ -833,7 +905,7 @@ export function useReducedMotion(): boolean {
 
 ### Bug #5: Zod 4 enum `errorMap` removed (Medium)
 
-**Symptom**: `npx tsc --noEmit` fails: `Object literal may only specify known properties, and 'errorMap' does not exist in type '{ error?: ...; message?: ... }'`.
+**Symptom**: `bun run typecheck` (or `npx tsc --noEmit`) fails: `Object literal may only specify known properties, and 'errorMap' does not exist in type '{ error?: ...; message?: ... }'`.
 
 **Root cause**: Zod 4 changed the `z.enum()` API. The `errorMap` option is gone; use `message` instead.
 
@@ -870,7 +942,7 @@ preferredDay: z.enum(PREFERRED_DAYS, {
 
 ### Bug #7: `tsconfig` picking up cloned reference repo (Low)
 
-**Symptom**: `npx tsc --noEmit` reports errors from `yoga-studio/drizzle.config.ts`, `yoga-studio/playwright.config.ts`, etc. — files that aren't part of this project.
+**Symptom**: `bun run typecheck` reports errors from `yoga-studio/drizzle.config.ts`, `yoga-studio/playwright.config.ts`, etc. — files that aren't part of this project.
 
 **Root cause**: The cloned `yoga-studio` reference repo lives at `./yoga-studio/` and TypeScript picks up its config files.
 
@@ -881,6 +953,76 @@ preferredDay: z.enum(PREFERRED_DAYS, {
 
 **Lesson**: When a reference/audit repo lives inside your project, exclude it from typecheck and lint. Same for `eslint.config.mjs` `ignores`.
 
+### Bug #8: Orphan config files break `bun run build` (Critical) — v2.0.0
+
+**Symptom**: `bun run build` fails with `Cannot find module 'drizzle-kit'` (or `'@playwright/test'`, `'vitest'`) at a config file like `drizzle.config.ts:2`.
+
+**Root cause**: `next build` runs `tsc` over ALL `.ts`/`.tsx` files in the project (per `tsconfig.json` `include: ["**/*.ts", "**/*.tsx"]`), including config files at project root. If a config file imports a dependency that isn't in `package.json`, the build fails. The Stillwater project inherited 4 orphan config files from a previous project ("IRONFORGE"): `drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, and a stale `vitest.config.ts`. All referenced uninstalled deps and non-existent paths.
+
+**Fix**: Delete the orphan config files. If a config file is needed, ensure its dependencies are in `package.json` and its referenced paths exist.
+
+**Lesson**: Before adding a config file, run `bun run build` to verify it compiles. CI now catches this on every PR (see §3.3). See also Lesson 11.
+
+### Bug #9: `'use server'` module exports sync function (Critical) — v2.0.0
+
+**Symptom**: `bun run build` fails with `Server Actions must be async functions` at a synchronous export inside a `'use server'` module.
+
+**Root cause**: Next.js requires every export from a `'use server'` file to be an async Server Action. Pure sync logic (Zod schemas, rate limiters, hash functions) cannot live there. The original `src/lib/actions/first-class.ts` exported `firstClassSchema` (a Zod object) and `checkRateLimit` (a sync function) — both illegal.
+
+**Fix**: Extract pure sync logic to a sibling non-`'use server'` module (`src/lib/first-class-validation.ts`). The server action imports from it. This also makes the logic unit-testable.
+
+```typescript
+// ❌ WRONG — sync exports in 'use server' module
+// src/lib/actions/first-class.ts
+"use server";
+export const firstClassSchema = z.object({ ... });        // ← BUILD ERROR
+export function checkRateLimit(ip: string) { ... }         // ← BUILD ERROR
+
+// ✅ CORRECT — pure logic in a regular module
+// src/lib/first-class-validation.ts (no 'use server')
+export const firstClassSchema = z.object({ ... });
+export function checkRateLimit(ip: string) { ... }
+
+// src/lib/actions/first-class.ts
+"use server";
+import { firstClassSchema, checkRateLimit } from "@/lib/first-class-validation";
+export async function claimFirstClassAction(...) { ... }
+```
+
+**Lesson**: When writing a server action, ask: "Is this export async?" If not, it belongs in a separate module. See ADR-011 and Lesson 12.
+
+### Bug #10: Unjustified major version bump breaks build (High) — v2.0.0
+
+**Symptom**: `bun run build` fails with a type error in a scaffold component after a dependency version bump. Example: `Property 'payload' does not exist on type '...ChartTooltipContent...'` in `chart.tsx:109`.
+
+**Root cause**: `recharts` was bumped from `^2.15.4` to `^3.9.1` in `package.json` without justification. Recharts 3.x has breaking API changes (the `payload` prop type on `ChartTooltipContent` changed). The consuming file (`chart.tsx`) was a shadcn scaffold component that hadn't been updated for 3.x.
+
+**Fix**: Reverted `package.json` to `"recharts": "^2.15.4"` and ran `bun install`. (The `chart.tsx` file was later deleted entirely as unused.)
+
+**Lesson**: Never bump a major version without (1) reading the changelog, (2) verifying the consuming code compiles, (3) running `bun run build`. Major version bumps should be a conscious decision, not a side effect of `bun update`. See Lesson 13.
+
+### Bug #11: `react-hooks/set-state-in-effect` in `use-mobile.ts` (High) — v2.0.0
+
+**Symptom**: ESLint error (when using `eslint-plugin-react-hooks@7.1.1`): `Calling setState synchronously within an effect can trigger cascading renders` at `src/hooks/use-mobile.ts:14`.
+
+**Root cause**: The hook called `setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)` synchronously in `useEffect`. This is the same anti-pattern as Bug #4, but in a different hook. The v1.0.0 SKILL.md incorrectly claimed `use-mobile.ts` was "unused" — it IS used by `src/components/ui/sidebar.tsx:8,69`.
+
+**Note on lockfile drift**: `bun.lock` pinned `eslint-plugin-react-hooks@7.0.1` (less strict — rule didn't fire), while `pnpm-lock.yaml` pinned `7.1.1` (catches the error). The bug was real in both cases — the rule just wasn't enforced in the Bun environment. See Lesson 15.
+
+**Fix**: Refactored to `useSyncExternalStore`, mirroring `use-reduced-motion.ts` (ADR-007). See §6.4 for the full implementation.
+
+**Lesson**: Don't rely on a single lockfile to define correctness. The code should follow the stricter interpretation. See Lesson 15.
+
+### Bug #12: Prisma migration named "test" (Medium) — v2.0.0
+
+**Symptom**: `prisma/migrations/20260704060757_test/` — the migration folder was named "test" from an interactive `prisma migrate dev` session. Unprofessional and misleading in production `prisma migrate deploy` logs.
+
+**Root cause**: During initial setup, `prisma migrate dev` prompted for a migration name and the user typed "test". The migration SQL itself was correct (creates `Lead` table + indexes), but the name was wrong.
+
+**Fix**: Renamed the folder to `20260704060757_init`. Ran `bun run db:reset` (drops + recreates the DB) to apply the renamed migration cleanly. Verified with `bunx prisma migrate status`.
+
+**Lesson**: Always provide a descriptive migration name: `bunx prisma migrate dev --name init` or `--name add_lead_model`. Never accept the interactive prompt's default of typing a name manually in a hurry. See Lesson 16.
+
 ---
 
 ## 10. Debugging Guide
@@ -889,8 +1031,10 @@ preferredDay: z.enum(PREFERRED_DAYS, {
 
 | Error | Cause | Fix |
 | --- | --- | --- |
+| `Cannot find module 'drizzle-kit'` (or `'@playwright/test'`, `'vitest'`) | Orphan config file at project root imports an uninstalled dep. `next build` type-checks ALL `.ts`/`.tsx` files. | Delete the orphan config file, or add the dep to `package.json`, or exclude in `tsconfig.json`. See Bug #8. |
+| `Server Actions must be async functions` | A `'use server'` module exported a sync function (Zod schema, rate limiter, etc.) | Extract pure sync logic to a non-`'use server'` module. See Bug #9 and ADR-011. |
+| `Property 'payload' does not exist on type 'ChartTooltipContent'` (or similar recharts type error) | Unjustified major version bump (recharts 2.x → 3.x) | Revert to the previous major version. See Bug #10. |
 | `cacheLife is not a function` | Using `cacheLife()` from `next/cache` without mocking in tests | Mock: `vi.mock("next/cache", () => ({ cacheLife: vi.fn() }))` |
-| `Cannot find module 'drizzle-kit'` | `tsconfig` not excluding the cloned `yoga-studio` repo | Add `"yoga-studio"` to `tsconfig.json` `exclude` |
 | Tailwind v4 utilities not generating | `postcss.config.mjs` has extra plugins | Remove `autoprefixer` + `postcss-import`. Only `@tailwindcss/postcss`. |
 | `Module not found: Can't resolve '@fontsource/*'` | Someone added `@fontsource/fraunces` | Use `next/font/google` instead. Remove the `@fontsource` import. |
 
@@ -899,22 +1043,25 @@ preferredDay: z.enum(PREFERRED_DAYS, {
 | Error | Cause | Fix |
 | --- | --- | --- |
 | `headers().get` error in server action | Next.js 16 async `headers()` | `await headers()` before `.get()`. See Bug #1. |
-| `set-state-in-effect` lint error | React 19 cascading render from `useEffect` | Use `useSyncExternalStore`. See Bug #4. |
+| `set-state-in-effect` lint error | React 19 cascading render from `useEffect` | Use `useSyncExternalStore`. See Bug #4 and Bug #11. |
 | Schedule accordion doesn't expand | Two triggers in one header | Use one trigger with two layouts inside. See Bug #3. |
 | Hydration mismatch on `useReducedMotion` | SSR/client value differs | The hook uses `getServerSnapshot: () => false` — SSR-safe by design. If still mismatching, check for `typeof window` guards. |
 | `P2002` on form submit | Prisma unique constraint on `email` | The server action handles this → returns warm `DUPLICATE` message. Not a bug. |
 | `AudioContext` not playing | Browser autoplay policy | `AudioContext` must be created/resumed in a user-gesture handler. See `SoundToast.tsx:playChime()`. |
+| `DATABASE_URL` points to wrong database | Parent directory's `.env` shadows the project's `.env` | Check with `bunx prisma migrate status`. The project's `.env` should have `DATABASE_URL="file:./db/stillwater.db"`. |
+| Prisma migration drift (`prisma migrate dev` fails with "Drift detected") | DB schema out of sync with migration history | Run `bun run db:reset` (dev only — destroys data), then `bun run db:migrate`. Never run `db:reset` in production. |
 
 ### 10.3 Test failures
 
-No test framework is wired up yet. When you add Vitest, watch for:
+Vitest is installed (v2.0.0). Common test failures:
 
 | Error | Cause | Fix |
 | --- | --- | --- |
 | `vi.mock()` factory TDZ error | Factory references `let`/`const` below it | Use `vi.hoisted()` to declare mocks BEFORE the factory |
 | `cacheLife is not a function` in tests | `next/cache` not mocked | `vi.mock("next/cache", () => ({ cacheLife: vi.fn() }))` |
-| `window.matchMedia is not a function` | jsdom doesn't implement `matchMedia` | Polyfill with `typeof === "function"` guard in setup |
+| `window.matchMedia is not a function` | jsdom doesn't implement `matchMedia` | Already stubbed in `src/tests/setup.ts`. If you see this, check the setup file is loaded. |
 | JSX in `.test.ts` file | TypeScript doesn't parse JSX in `.ts` files | Rename to `.test.tsx` |
+| `'use server'` module can't be imported in tests | The server action module has side effects (Prisma client init) | Test the pure logic in `src/lib/first-class-validation.ts` instead. See ADR-011. |
 
 ### 10.4 Visual/styling issues
 
@@ -962,10 +1109,17 @@ agent-browser snapshot -i           # verify mobile layout
 
 ```bash
 bun run lint           # 0 errors, 0 warnings
-npx tsc --noEmit       # 0 errors
+bun run typecheck      # 0 errors (tsc --noEmit)
+bun run test           # 22 tests pass (vitest run)
 ```
 
-**Both must pass before every commit.** There's no test framework yet — when Vitest is added, `bun run test` joins the gate.
+**All three must pass before every commit.** For PRs and releases, also run:
+
+```bash
+bun run build          # must succeed (4 routes: /, /_not-found, /api, /api/health)
+```
+
+**CI runs the full gate on every push and PR to `main`** (`.github/workflows/ci.yml`): lint → typecheck → test → build. All must pass for merge.
 
 ### 11.2 Pre-commit visual checklist
 
@@ -976,6 +1130,8 @@ npx tsc --noEmit       # 0 errors
 - [ ] Animations respect `prefers-reduced-motion`
 - [ ] No `rounded-2xl` on app components (shadcn primitives are fine)
 - [ ] No `@fontsource/*` imports — use `next/font/google`
+- [ ] No orphan config files at project root (see Bug #8)
+- [ ] No sync functions exported from `'use server'` modules (see Bug #9)
 - [ ] No `experimental.ppr` / `experimental.dynamicIO` in `next.config.ts`
 
 ### 11.3 Pre-deployment env validation
@@ -1065,7 +1221,7 @@ curl -s -X POST https://your-domain/ \
 
 ### Lesson 7: Exclude reference repos from typecheck and lint
 
-**Context**: `npx tsc --noEmit` reported errors from the cloned `yoga-studio` repo's config files (drizzle-kit not installed, playwright not installed, etc.).
+**Context**: `bun run typecheck` (or `npx tsc --noEmit`) reported errors from the cloned `yoga-studio` repo's config files (drizzle-kit not installed, playwright not installed, etc.).
 
 **Why it mattered**: The typecheck was failing on files that aren't part of this project, masking real errors.
 
@@ -1095,6 +1251,54 @@ curl -s -X POST https://your-domain/ \
 
 **How to avoid**: Ask "Will this data ever be written by a user, or participate in a transaction?" If no, keep it in code. The database is for mutable state, not reference data.
 
+### Lesson 11: Orphan config files break `next build` (v2.0.0)
+
+**Context**: The project inherited 4 orphan config files from a previous project ("IRONFORGE"): `drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, and a stale `vitest.config.ts`. All imported uninstalled dependencies (`drizzle-kit`, `@playwright/test`) and referenced non-existent paths. `bun run build` failed with `Cannot find module 'drizzle-kit'`.
+
+**Why it mattered**: The build was completely broken. No production deploy was possible until these orphans were deleted. The bug was latent — it only surfaced when someone ran `bun run build` for the first time after inheriting the project.
+
+**How to avoid**: `next build` runs `tsc` over ALL `.ts`/`.tsx` files (per `tsconfig.json` `include: ["**/*.ts", "**/*.tsx"]`), including config files at project root. Before adding a config file, ensure its dependencies are in `package.json` and its referenced paths exist. CI now catches this on every PR. See Bug #8.
+
+### Lesson 12: `'use server'` modules cannot export sync functions (v2.0.0)
+
+**Context**: The original `src/lib/actions/first-class.ts` exported `firstClassSchema` (a Zod object) and `checkRateLimit` (a sync function). Both are pure sync logic. When TDD-driven unit tests tried to import them, the build failed with `Server Actions must be async functions`.
+
+**Why it mattered**: Next.js requires every export from a `'use server'` file to be an async Server Action. Pure sync logic (schemas, rate limiters, hash functions) cannot live there. This blocked both the build AND the ability to unit-test the validation logic.
+
+**How to avoid**: When writing a server action, ask: "Is this export async?" If not, it belongs in a separate non-`'use server'` module. The extraction pattern (`first-class-validation.ts` + `first-class.ts`) is the canonical fix — see ADR-011 and §15. This is the Single Responsibility Principle in action: the server action orchestrates; the validation module validates.
+
+### Lesson 13: Unjustified major version bumps break builds (v2.0.0)
+
+**Context**: `recharts` was bumped from `^2.15.4` to `^3.9.1` in `package.json` without justification. Recharts 3.x changed the `payload` prop type on `ChartTooltipContent`, causing a build-breaking type error in `chart.tsx:109`.
+
+**Why it mattered**: The build was broken. The bump was unnecessary (recharts was only used by the unused `chart.tsx` scaffold component) and harmful (3.x has breaking API changes). It took a full audit to trace the build failure back to this version bump.
+
+**How to avoid**: Never bump a major version without (1) reading the changelog, (2) verifying the consuming code compiles, (3) running `bun run build`. Major version bumps should be a conscious decision, not a side effect of `bun update`. If a dependency is unused, remove it entirely rather than bumping it. See Bug #10.
+
+### Lesson 14: Documentation can be wrong about usage (v2.0.0)
+
+**Context**: The v1.0.0 SKILL.md and PAD §3.2 claimed `src/hooks/use-mobile.ts` was "Scaffold breakpoint hook (unused)". In reality, it was imported by `src/components/ui/sidebar.tsx:8,69`. The documentation was written based on a surface-level scan, not a grep for imports.
+
+**Why it mattered**: Based on the "unused" claim, the audit almost deleted `use-mobile.ts`. If it had been deleted, `sidebar.tsx` would have broken. The hook was also triggering a lint error (`set-state-in-effect`) that needed fixing — the "unused" claim almost caused the fix to be skipped.
+
+**How to avoid**: When documenting "unused" files, verify with `grep -rln "from.*<module>" src/`. Documentation that claims something is unused should be treated as a hypothesis, not a fact. See Bug #11.
+
+### Lesson 15: Lockfile version drift can hide lint errors (v2.0.0)
+
+**Context**: `bun run lint` passed, but `error.txt` (captured from `pnpm lint`) showed `react-hooks/set-state-in-effect` errors at `use-mobile.ts:14` and `carousel.tsx:98`. The discrepancy was traced to the `eslint-plugin-react-hooks` version: `bun.lock` pinned `7.0.1` (less strict — rule didn't fire), while `pnpm-lock.yaml` pinned `7.1.1` (catches the error).
+
+**Why it mattered**: The bug was real in both cases — the rule just wasn't enforced in the Bun environment. A developer using only `bun run lint` would think the code was clean, while a CI pipeline using pnpm would fail. This creates a false sense of security.
+
+**How to avoid**: Don't rely on a single lockfile to define correctness. The code should follow the stricter interpretation. When in doubt, run `pnpm lint` (or upgrade the Bun-pinned plugin) to catch additional issues. The fix (`useSyncExternalStore`) is correct regardless of plugin version. See Bug #11.
+
+### Lesson 16: TDD reveals architectural issues (v2.0.0)
+
+**Context**: Writing unit tests for `first-class.ts` failed because the module couldn't be imported in a test environment — it has `'use server'` + Prisma imports (`db` singleton). The pure validation logic was entangled with the server action orchestration + Prisma persistence.
+
+**Why it mattered**: The entanglement made the validation logic untestable in isolation. Without TDD, this would have remained a latent design smell — the code "worked" but was brittle. TDD forced the extraction of pure logic to `first-class-validation.ts`, which is now unit-tested with 22 tests.
+
+**How to avoid**: If a module is hard to test, it's probably doing too much. Extract pure logic into testable units. This is a benefit of TDD — it forces better architecture. The `first-class-validation.ts` extraction (ADR-011) is the direct result of this lesson. See Bug #9.
+
 ---
 
 ## 13. Pitfalls to Avoid
@@ -1105,6 +1309,9 @@ curl -s -X POST https://your-domain/ \
 - **Don't put DB access in client components.** All DB access goes through server actions or `src/lib/data/*` (static content). The `db` singleton is imported only in `src/lib/actions/first-class.ts`.
 - **Don't add more routes.** The `fullstack-dev` skill constraint says only `/` is user-visible. If you need `/schedule` or `/teachers` as standalone pages, ask first — the current design is a single-page editorial scroll.
 - **Don't use `prisma db push` in production.** Always `prisma migrate deploy`. `db push` is dev-only.
+- **Don't export sync functions from `'use server'` modules.** Next.js requires all exports to be async Server Actions. Pure sync logic (Zod schemas, rate limiters, hash functions) belongs in a separate non-`'use server'` module. See Bug #9, Lesson 12, ADR-011.
+- **Don't leave orphan config files at project root.** `next build` type-checks ALL `.ts`/`.tsx` files. A config file that imports an uninstalled dep breaks the build. See Bug #8, Lesson 11.
+- **Don't re-add removed dependencies without confirming usage.** 26 unused deps were removed in v2.0.0 (next-auth, recharts, framer-motion, @dnd-kit/*, @tanstack/*, zustand, etc.). Do NOT re-add via `bun add` without confirming the dep is actually imported by app code. The removed shadcn ui components (chart, sonner, carousel, calendar, form, resizable, input-otp, command, drawer) were also deleted — re-add via `bunx shadcn@latest add <component>` if needed.
 
 ### 13.2 TypeScript pitfalls
 
@@ -1112,14 +1319,16 @@ curl -s -X POST https://your-domain/ \
 - **Don't use `enum` / `namespace`.** They violate `erasableSyntaxOnly` (if enabled). Use string unions or `as const` arrays.
 - **Don't use `import { Type }`.** Use `import type { Type }` for type-only imports.
 - **Don't disable `noUncheckedIndexedAccess`.** Always handle `T | undefined` for indexed access.
+- **Don't silence `react-hooks/set-state-in-effect` in ESLint config.** Use `useSyncExternalStore` instead. The rule exists to prevent cascading renders. See Bug #4, Bug #11.
 
-### 13.3 Testing pitfalls (when tests are added)
+### 13.3 Testing pitfalls
 
 - **Don't use `vi.fn()` directly in `vi.mock()` factory.** Use `vi.hoisted()` to declare mocks BEFORE the factory — TDZ otherwise.
 - **Don't use `vi.clearAllMocks()` on structural mock chains.** Only reset leaf mocks via `mockResolvedValueOnce()`.
 - **Don't put JSX in `.test.ts` files.** Rename to `.test.tsx` — TypeScript doesn't parse JSX in `.ts` files.
 - **Don't forget to mock `next/cache`.** `cacheLife is not a function` if you don't: `vi.mock("next/cache", () => ({ cacheLife: vi.fn() }))`.
-- **Don't forget the `window.matchMedia` polyfill.** jsdom doesn't implement it. Always guard with `typeof === "function"`.
+- **Don't forget the `window.matchMedia` polyfill.** jsdom doesn't implement it. Already stubbed in `src/tests/setup.ts` — don't remove it.
+- **Don't try to import `'use server'` modules in unit tests.** They have side effects (Prisma client init) and can't export sync functions. Test the pure logic in `src/lib/first-class-validation.ts` instead. See ADR-011.
 
 ### 13.4 Design system pitfalls
 
@@ -1212,19 +1421,19 @@ curl -s -X POST https://your-domain/ \
 
 ## 15. Coding Patterns
 
-### 15.1 Server Action pattern (auth → validate → business → response)
+### 15.1 Server Action pattern with validation module extraction (v2.0.0)
 
-Location: `src/lib/actions/first-class.ts`
+**Locations:** `src/lib/first-class-validation.ts` (pure logic) + `src/lib/actions/first-class.ts` (server action)
+
+**Why the split:** `'use server'` modules cannot export sync functions (Bug #9, Lesson 12, ADR-011). Pure logic (Zod schema, rate limiter, hashIp) lives in the validation module; the server action imports from it. This also makes the logic unit-testable (22 tests in `src/tests/unit/`).
 
 ```typescript
-"use server";
-
+// src/lib/first-class-validation.ts — pure logic, NO 'use server'
 import { z } from "zod";
-import { headers } from "next/headers";
-import { db } from "@/lib/db";
+import { createHash } from "node:crypto";
 import { PREFERRED_DAYS } from "@/lib/data/schedule";
 
-const schema = z.object({
+export const firstClassSchema = z.object({
   name: z.string().trim().min(2, "Please tell us your name").max(80),
   email: z.string().trim().email("A valid email is required").max(160),
   preferredDay: z.enum(PREFERRED_DAYS, { message: "Please choose a preferred time" }),
@@ -1236,6 +1445,26 @@ export type FirstClassResult =
   | { success: true; message: string }
   | { success: false; code: "VALIDATION" | "RATE_LIMIT" | "BOT" | "DUPLICATE" | "INTERNAL"; message: string; errors?: FirstClassFieldErrors };
 
+// Pure sync function — testable in isolation
+export function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs: number } {
+  // ... sliding window logic ...
+}
+
+export function hashIp(ip: string): string {
+  return createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
+```
+
+```typescript
+// src/lib/actions/first-class.ts — server action, imports from validation module
+"use server";
+
+import { headers } from "next/headers";
+import { db } from "@/lib/db";
+import { firstClassSchema, checkRateLimit, hashIp, type FirstClassResult } from "@/lib/first-class-validation";
+
+export type { FirstClassResult };  // re-export for client components
+
 export async function claimFirstClassAction(
   _prev: FirstClassResult | null,
   formData: FormData,
@@ -1245,21 +1474,21 @@ export async function claimFirstClassAction(
 
   // 2. Rate limit (fail-open)
   try {
-    const ip = await getClientIp();
+    const ip = await getClientIp();  // await headers() — Next.js 16
     if (!checkRateLimit(ip).allowed) {
       return { success: false, code: "RATE_LIMIT", message: "Too many attempts. Please try again in an hour." };
     }
   } catch { /* fail-open */ }
 
-  // 3. Validate
-  const parsed = schema.safeParse(Object.fromEntries(formData));
+  // 3. Validate (schema from validation module)
+  const parsed = firstClassSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { success: false, code: "VALIDATION", message: "Please correct the highlighted fields.", errors: formatErrors(parsed.error) };
   }
 
   // 4. Persist (handle duplicate)
   try {
-    await db.lead.create({ data: { ...parsed.data, ipHash: await hashIp(), status: "pending" } });
+    await db.lead.create({ data: { ...parsed.data, ipHash: await hashIp(await getClientIp()), status: "pending" } });
   } catch (err) {
     if (isUniqueConstraint(err)) {
       return { success: false, code: "DUPLICATE", message: "We already have a request from this email — Iris will write you back within a day." };
@@ -1270,6 +1499,12 @@ export async function claimFirstClassAction(
   return { success: true, message: "Thank you — Iris will write you back within a day, by hand." };
 }
 ```
+
+**Key rules:**
+1. The `'use server'` file exports ONLY async functions (the server action itself) and re-exported types.
+2. All pure sync logic (schemas, rate limiters, hashers) lives in the validation module.
+3. The validation module has NO `'use server'` directive — it's a regular module.
+4. Unit tests import from the validation module, not the server action.
 
 ### 15.2 `useActionState` form pattern
 
@@ -1885,6 +2120,42 @@ model Lead {
 
 **Consequences**: `AudioContext` must be created in a user-gesture handler (browser autoplay policy). The chime is opt-in only.
 
+### ADR-009: Bun over pnpm/npm
+
+**Decision**: Use Bun as both package manager and runtime.
+
+**Rationale**: Bun is the unified PM + runtime — `bun install`, `bun run dev`, `bun run build`, `bun run start`, and `bun .next/standalone/server.js` all use the same tool. The `fullstack-dev` skill scaffold uses Bun. Bun's standalone server is faster than Node's `next start` for the standalone build output.
+
+**Consequences**: The lockfile is `bun.lock` (not `pnpm-lock.yaml`). Docker images use `oven/bun:1-alpine`. The `package.json` scripts use `bun run` (which works with npm/pnpm too — the project is PM-agnostic at the script level, but the lockfile locks to Bun). CI uses `oven-sh/setup-bun@v2`.
+
+### ADR-010: Single-route architecture (`/` only)
+
+**Decision**: Implement a single route (`/`) with six composed sections. No `/schedule`, `/teachers`, or `/signup` standalone pages.
+
+**Rationale**: The design is a single-page editorial scroll — "one idea per scroll viewport." Splitting into routes would break the narrative flow and the breath-cycle hero's context. The `fullstack-dev` skill constraint reinforces this. Anchor links (`#practices`, `#teachers`, etc.) provide deep-linking within the page.
+
+**Consequences**: All sections are composed in `src/app/page.tsx`. The Topbar nav uses anchor links, not `next/link` to other routes. If standalone pages are needed later (e.g., a blog), they require explicit user request and a route group like `(marketing)/blog/`.
+
+### ADR-011: Validation module extraction for `'use server'` modules (v2.0.0)
+
+**Decision**: Extract pure sync validation logic from `src/lib/actions/first-class.ts` into a separate module `src/lib/first-class-validation.ts`.
+
+**Rationale**: Next.js requires every export from a `'use server'` file to be an async Server Action. Pure sync logic (Zod schemas, rate limiters, hash functions) cannot live there — the build fails with `Server Actions must be async functions` (Bug #9). Extraction to a regular module solves both the build error AND makes the logic unit-testable (22 tests in `src/tests/unit/`).
+
+**Consequences**: The server action (`first-class.ts`) imports from the validation module (`first-class-validation.ts`). Types are re-exported for backward compatibility. This is the Single Responsibility Principle in action: the server action orchestrates; the validation module validates. Future server actions that need pure logic should follow the same pattern. See Lesson 12, Lesson 16.
+
+**Alternatives rejected**: (1) Making the schema and rate limiter async — they're pure functions, adding `async` would be misleading. (2) Inlining the logic in the server action — untestable. (3) Not testing the logic — unacceptable per PAD §8.
+
+### ADR-012: Orphan config file prevention (v2.0.0)
+
+**Decision**: No config files at project root may import uninstalled dependencies. CI runs `bun run build` (which type-checks all `.ts`/`.tsx` files) on every PR to enforce this.
+
+**Rationale**: The project inherited 4 orphan config files from a previous project ("IRONFORGE"): `drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, and a stale `vitest.config.ts`. All imported uninstalled deps (`drizzle-kit`, `@playwright/test`) and broke `bun run build` with `Cannot find module` errors (Bug #8). The fix was to delete the orphans; the prevention is CI.
+
+**Consequences**: Before adding a config file at project root, verify: (1) its dependencies are in `package.json`, (2) its referenced paths exist, (3) `bun run build` succeeds. The `tsconfig.json` `exclude` array already excludes `yoga-studio`, `skills`, `examples`, `upload`, `tool-results` — these are audit/scaffold folders, not part of the app. See Lesson 11.
+
+**Alternatives rejected**: (1) Adding a lint rule to catch uninstalled imports — no standard ESLint rule exists for this. (2) Excluding all config files from `tsconfig.json` — would miss real type errors in config files. (3) Manual review only — already failed once; CI is the reliable gate.
+
 ---
 
 ## Appendix B: Live-Site Validation Methodology
@@ -1952,7 +2223,7 @@ echo "=== Lint ==="
 bun run lint
 
 echo "=== Typecheck ==="
-npx tsc --noEmit
+bun run typecheck
 
 echo "=== Dev server ==="
 curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3000/
@@ -1970,22 +2241,33 @@ echo "✅ All checks passed"
 
 ## Appendix C: Intentional Omissions
 
-The following are **deliberately omitted** from this project. Each was present in the original `nordeim/yoga-studio` repo and consciously excluded here.
+The following are **deliberately omitted** from this project. Each was present in the original `nordeim/yoga-studio` repo and consciously excluded here. Items marked **[REMOVED in v2.0.0]** were previously in `package.json` as unused scaffold dependencies and have been completely removed.
 
 | Omission | Reason |
 | --- | --- |
 | **Auth.js v5** | The "first class free" form is anonymous. No user accounts, no sessions, no protected routes. Adding auth introduces JWTs, DrizzleAdapter, CVE surface — none of which a marketing site needs. |
+| **`next-auth` [REMOVED in v2.0.0]** | Was in `package.json` as an unused scaffold dep. Removed to reduce CVE surface. Do NOT re-add without explicit request. |
 | **Stripe** | "First class free" means free. No payments, no subscriptions, no class packs. |
 | **Inngest** | No background jobs. The server action is synchronous (Prisma insert + return). Email confirmation is manual ("Iris writes you back by hand"). |
 | **Replicate** | No AI image generation. Hero + teacher photos come from `picsum.photos` (placeholder). Replace with real photography in production. |
-| **Drizzle ORM** | Replaced with Prisma. The `fullstack-dev` skill scaffold includes Prisma out of the box, and Prisma's `schema.prisma` is more readable. |
-| **Vitest + Playwright** | Not yet wired up. Manual verification via `agent-browser` for now. Planned for a future sprint. |
+| **Drizzle ORM** | Replaced with Prisma. The `fullstack-dev` skill scaffold includes Prisma out of the box, and Prisma's `schema.prisma` is more readable. The orphan `drizzle.config.ts` was deleted in v2.0.0 (Bug #8). |
+| **`recharts` [REMOVED in v2.0.0]** | Was used only by the unused shadcn `chart.tsx` scaffold component. Both removed. Was bumped to 3.x without justification (Bug #10), reverted to 2.x, then removed entirely. |
+| **`framer-motion` [REMOVED in v2.0.0]** | Was unused. Animations use CSS keyframes + `@theme` tokens. |
+| **`@dnd-kit/*` [REMOVED in v2.0.0]** | Was unused (3 packages: core, sortable, utilities). No drag-and-drop features. |
+| **`@tanstack/react-query` + `@tanstack/react-table` [REMOVED in v2.0.0]** | Were unused. Static content is imported directly; the only DB write is the form submission. |
+| **`zustand` [REMOVED in v2.0.0]** | Was unused. The 5 client leaves use `useState` / `useSyncExternalStore` / `useActionState` only. |
+| **`next-intl` [REMOVED in v2.0.0]** | Was unused. English only — studio is in Brooklyn. |
+| **`next-themes` [REMOVED in v2.0.0]** | Was unused. No dark mode — the calm aesthetic is built around warm cream. |
+| **Other removed unused deps [v2.0.0]** | `@hookform/resolvers`, `@mdxeditor/editor`, `@reactuses/core`, `date-fns`, `react-markdown`, `react-syntax-highlighter`, `react-resizable-panels`, `input-otp`, `cmdk`, `vaul`, `react-hook-form`, `react-day-picker`, `embla-carousel-react`, `uuid`, `z-ai-web-dev-sdk`. All were unused by app code. |
+| **9 unused shadcn ui components [REMOVED in v2.0.0]** | `chart.tsx`, `sonner.tsx`, `carousel.tsx`, `calendar.tsx`, `form.tsx`, `resizable.tsx`, `input-otp.tsx`, `command.tsx`, `drawer.tsx`. None were imported by app code. Re-add via `bunx shadcn@latest add <component>` if needed. |
+| **Playwright (E2E)** | Not yet installed. A fresh `playwright.config.ts` must be written when Playwright is actually added (the previous orphan config was deleted in v2.0.0). Planned for a future sprint. |
+| **`@testing-library/react`** | Not yet installed. Component tests for `FirstClassFree.tsx`, `Schedule.tsx`, `Hero.tsx` are planned. The priority test surface (validation logic) is covered by 22 unit tests. |
 | **Docker** | `next.config.ts` has `output: "standalone"` for Docker, but no `Dockerfile` is included. The standalone output at `.next/standalone/` is ready for any container runtime. |
-| **CI/CD** | No GitHub Actions workflow. The pre-ship checklist (`bun run lint && npx tsc --noEmit`) is manual. Add CI when the team grows. |
+| **CI/CD [FIXED in v2.0.0]** | CI is now configured via `.github/workflows/ci.yml`. Runs on push/PR to `main`: lint → typecheck → test → build. Uses `oven-sh/setup-bun@v2`. |
 | **i18n** | English only. The studio is in Cobble Hill, Brooklyn — no internationalisation needed. |
-| **Dark mode** | The calm aesthetic is built around warm cream backgrounds. Dark mode would undermine the brand. The `next-themes` package is in `package.json` (scaffold) but unused. |
+| **Dark mode** | The calm aesthetic is built around warm cream backgrounds. Dark mode would undermine the brand. |
 | **Blog/CMS** | Static content in `src/lib/data/*.ts`. No headless CMS, no MDX, no blog engine. |
 
 ---
 
-*End of Stillwater project skill. This document was produced by following the Six-Phase Distillation Process from the `to-distill-project-into-skill` meta-skill on the Stillwater Yoga Studio codebase (Next.js 16.1.3 + React 19 + Tailwind v4 + Prisma 6.19 + Zod 4 + shadcn/ui + Web Audio API). For the companion docs, see `README.md`, `AGENTS.md`, and `CLAUDE.md`.*
+*End of Stillwater project skill (v2.0.0). This document was produced by following the Six-Phase Distillation Process from the `to-distill-project-into-skill` meta-skill on the Stillwater Yoga Studio codebase (Next.js 16.1.3 + React 19 + Tailwind v4 + Prisma 6.19 + Zod 4 + Vitest 4.1.9 + shadcn/ui + Web Audio API). For the companion docs, see `README.md`, `AGENTS.md`, `CLAUDE.md`, and `Project_Architecture_Document.md`.*

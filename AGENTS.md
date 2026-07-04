@@ -9,12 +9,16 @@ Compact instruction file for AI coding agents working in this repo. Every line a
 | Install           | `bun install`                    |
 | Dev server        | `bun run dev` (port 3000, tees to `dev.log`) |
 | Lint (must pass)  | `bun run lint`                   |
-| Typecheck (must pass) | `npx tsc --noEmit`            |
+| Typecheck (must pass) | `bun run typecheck`          |
+| Unit tests (must pass) | `bun run test`              |
+| Watch tests       | `bun run test:watch`             |
 | Production build  | `bun run build`                  |
 | Push Prisma schema (dev) | `bun run db:push`         |
 | Regenerate Prisma Client | `bun run db:generate`     |
 
-**Quality gate before every commit**: `bun run lint && npx tsc --noEmit`. Both must be 0 errors.
+**Quality gate before every commit**: `bun run lint && bun run typecheck && bun run test`. All must be 0 errors.
+
+**Full pre-ship gate (also run by CI)**: `bun run lint && bun run typecheck && bun run test && bun run build`.
 
 ## Architecture facts agents miss
 
@@ -26,13 +30,15 @@ Compact instruction file for AI coding agents working in this repo. Every line a
 
 ## Framework quirks that will bite you
 
-- **Next.js 16: `headers()` returns a Promise.** Always `await headers()`. Synchronous `.get()` on it → runtime 500. See `src/lib/actions/first-class.ts:73`.
-- **Tailwind v4: CSS-first config.** Design tokens live in `src/app/globals.css` under `@theme inline {}`. There is NO `tailwind.config.js` for app tokens — the root `tailwind.config.ts` is the empty scaffold default. Do NOT add tokens there.
+- **Next.js 16: `headers()` returns a Promise.** Always `await headers()`. Synchronous `.get()` on it → runtime 500. See `src/lib/actions/first-class.ts`.
+- **Tailwind v4: CSS-first config.** Design tokens live in `src/app/globals.css` under `@theme inline {}`. There is NO `tailwind.config.js` for app tokens — the root `tailwind.config.ts` is the scaffold default (currently holds the shadcn theme — see "Known Issues" in the PAD). Do NOT add tokens there.
 - **PostCSS has only `@tailwindcss/postcss`.** Do NOT add `autoprefixer` or `postcss-import` — they break v4.
-- **Zod 4 enum API changed.** `z.enum(values, { errorMap: ... })` is GONE. Use `z.enum(values, { message: "..." })`. See `src/lib/actions/first-class.ts:24`.
+- **Zod 4 enum API changed.** `z.enum(values, { errorMap: ... })` is GONE. Use `z.enum(values, { message: "..." })`. See `src/lib/first-class-validation.ts`.
 - **React 19: no `forwardRef` needed** on new components. `ref` is a regular prop.
-- **React 19: use `useSyncExternalStore` for external state**, NOT `useEffect` + `setState`. The latter triggers the `react-hooks/set-state-in-effect` lint error. See `src/hooks/use-reduced-motion.ts`.
+- **React 19: use `useSyncExternalStore` for external state**, NOT `useEffect` + `setState`. The latter triggers the `react-hooks/set-state-in-effect` lint error. See `src/hooks/use-reduced-motion.ts` and `src/hooks/use-mobile.ts` (both use `useSyncExternalStore`).
 - **`useActionState`** for form state — signature is `useActionState(serverAction, initialState)`. See `src/components/sections/FirstClassFree.tsx`.
+- **`'use server'` modules cannot export sync functions.** Next.js requires every export from a `'use server'` file to be an async Server Action. Zod schemas, rate limiters, and hash functions are sync — they MUST live in a separate non-`'use server'` module. See `src/lib/first-class-validation.ts` (pure logic) vs `src/lib/actions/first-class.ts` (the server action that imports it). Exporting a sync function from a `'use server'` module causes a build error: `Server Actions must be async functions`.
+- **`next build` type-checks ALL `.ts`/`.tsx` files** including config files at project root. A config file that imports an uninstalled dependency breaks the build with `Cannot find module`. Past victims (all deleted): `drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, and a stale `vitest.config.ts` from another project. If you add a config file, ensure its deps are in `package.json`.
 - **`tsconfig.json` excludes `yoga-studio`, `skills`, `examples`, `upload`, `tool-results`** — these are audit/scaffold folders, not part of the app. Don't remove the excludes.
 
 ## Design system — non-obvious rules
@@ -51,28 +57,42 @@ Compact instruction file for AI coding agents working in this repo. Every line a
 - **`db/` folder is committed** (the SQLite file ships with the repo for dev convenience). Clear it before production deploy.
 - **`src/lib/db.ts`** exports a global singleton `db`. Import as `import { db } from "@/lib/db"`.
 - **Never `prisma db push` in production** — always `prisma migrate deploy`.
+- **Migration history**: single migration `20260704060757_init` (creates `Lead` table + indexes). If `prisma migrate dev` reports "Drift detected", run `bun run db:reset` (dev only — destroys data) then `bun run db:migrate`.
+- **`.env` is required at project root** with `DATABASE_URL="file:./db/stillwater.db"`. It is gitignored (`.env*`). If a parent directory's `.env` shadows this one, Prisma will use the parent's `DATABASE_URL` instead — check with `bunx prisma migrate status`.
 
 ## Server Action conventions
 
-`src/lib/actions/first-class.ts` is the only server action. It returns a discriminated union `FirstClassResult` — never throw for expected errors. The flow:
+`src/lib/actions/first-class.ts` is the only server action. It returns a discriminated union `FirstClassResult` (re-exported from `src/lib/first-class-validation.ts`) — never throw for expected errors. The flow:
 
 1. Honeypot check (`company` field must be empty) → silent `BOT` reject.
-2. Rate limit (3/hour per IP, in-memory sliding window, **fail-open** on outage).
-3. Zod validation → `VALIDATION` with inline field errors.
+2. Rate limit (3/hour per IP, in-memory sliding window, **fail-open** on outage). Logic in `first-class-validation.ts:checkRateLimit()`.
+3. Zod validation → `VALIDATION` with inline field errors. Schema in `first-class-validation.ts:firstClassSchema`.
 4. `db.lead.create()` → `DUPLICATE` on Prisma `P2002` (unique email constraint).
 5. Success → `{ success: true, message }`.
 
-`ipHash` is SHA-256 of the IP (never store raw IPs). See `src/lib/actions/first-class.ts:69`.
+`ipHash` is SHA-256 of the IP truncated to 16 chars (never store raw IPs). See `first-class-validation.ts:hashIp()`.
+
+**Why pure logic lives in `first-class-validation.ts`**: `'use server'` modules cannot export sync functions (Next.js requires all exports to be async Server Actions). The Zod schema, rate limiter, and hash function are sync, so they live in the validation module and are imported by the server action. This also makes them unit-testable (22 tests in `src/tests/unit/`).
 
 ## Things that are NOT in this project (don't add without asking)
 
-- **No auth** (no Auth.js, no NextAuth, no sessions). The form is anonymous.
+- **No auth** (no Auth.js, no NextAuth, no sessions). The form is anonymous. (`next-auth` was previously an unused dependency — it has been **removed** from `package.json`.)
 - **No Stripe, no payments.** "First class free" means free.
 - **No Inngest, no background jobs.**
 - **No Replicate, no AI image generation.** Hero + teacher photos come from `picsum.photos` (placeholder).
-- **No test framework yet.** Vitest + Playwright are planned but not installed. Manual verification via `agent-browser` for now.
+- **No charting library.** `recharts` was previously in `package.json` (used only by the unused shadcn `chart.tsx` scaffold) — both have been **removed**.
+- **No framer-motion.** Animations use CSS keyframes + `@theme` tokens. (`framer-motion` was removed — it was unused.)
+- **No state management library.** `zustand` was removed (unused). The 5 client leaves use `useState` / `useSyncExternalStore` / `useActionState` only.
+- **No data-fetching library.** `@tanstack/react-query` and `@tanstack/react-table` were removed (unused). Static content is imported directly; the only DB write is the form submission.
+- **No dnd, no markdown editor, no syntax highlighter, no resizable panels, no OTP input.** `@dnd-kit/*`, `@mdxeditor/editor`, `react-markdown`, `react-syntax-highlighter`, `react-resizable-panels`, `input-otp` were all removed (unused).
+- **No date library.** `date-fns` was removed (unused).
+- **No i18n.** `next-intl` was removed (unused). English only — studio is in Brooklyn.
+- **No theme switching.** `next-themes` was removed (unused). The calm aesthetic is built around warm cream; no dark mode.
+- **Test framework IS installed**: Vitest with 22 unit tests. Playwright (e2e) is still planned but not installed.
 
-The original `yoga-studio` repo (cloned at `./yoga-studio/`) had all of these — this build deliberately omits them for a calm marketing site.
+The original `yoga-studio` repo (cloned at `./yoga-studio/`) had auth, Stripe, Inngest, Replicate, Drizzle ORM — this build deliberately omits them for a calm marketing site.
+
+**If you need one of these back**: `bun add <package>` and verify it compiles. Do NOT re-add a dependency without confirming it's actually imported by app code.
 
 ## Investigating before editing
 
@@ -84,23 +104,33 @@ Before touching a section, read:
 
 Before touching the form, read:
 - `src/components/sections/FirstClassFree.tsx` — the client component
-- `src/lib/actions/first-class.ts` — the server action
+- `src/lib/actions/first-class.ts` — the server action (orchestration only)
+- `src/lib/first-class-validation.ts` — the pure validation logic (schema, rate limiter, hashIp)
 - `prisma/schema.prisma` — the `Lead` model
+- `src/tests/unit/first-class.*.test.ts` — the 22 unit tests guarding the validation logic
 
 Before touching animations, read:
-- `src/hooks/use-reduced-motion.ts` — `useSyncExternalStore` pattern
+- `src/hooks/use-reduced-motion.ts` — `useSyncExternalStore` pattern (canonical)
+- `src/hooks/use-mobile.ts` — same pattern (mirrors use-reduced-motion)
 - `src/hooks/use-reveal.ts` — IntersectionObserver fade-up
 - `src/hooks/use-breath-cycle.ts` — 8s rAF loop
 - The `@keyframes` block in `src/app/globals.css`
 
+Before touching dependencies, read:
+- `package.json` — current deps (39 production, 12 dev)
+- This file's "Things that are NOT in this project" section — many deps were removed; do NOT re-add without confirming usage
+
 ## Verification after changes
 
 ```bash
-bun run lint && npx tsc --noEmit   # must be 0 errors
-bun run dev                         # then verify in browser:
+bun run lint && bun run typecheck && bun run test   # must be 0 errors
+bun run build                                        # must succeed (4 routes)
+bun run dev                                          # then verify in browser:
 agent-browser open http://localhost:3000/
 agent-browser wait --load networkidle
-agent-browser errors                # must be empty
-agent-browser console               # must be empty (HMR connected is fine)
-agent-browser snapshot -i           # verify all 6 sections + form fields present
+agent-browser errors                                # must be empty
+agent-browser console                               # must be empty (HMR connected is fine)
+agent-browser snapshot -i                           # verify all 6 sections + form fields present
 ```
+
+CI (`.github/workflows/ci.yml`) runs the same gate on every push and PR to `main`: lint → typecheck → test → build. All must pass for merge.

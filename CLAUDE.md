@@ -27,7 +27,7 @@ Follow this six-phase workflow for all implementation tasks:
 2. **PLAN** — Create a detailed plan with sequential phases. Present for explicit user confirmation. Never proceed without validation.
 3. **VALIDATE** — Get explicit user approval before coding. Address concerns.
 4. **IMPLEMENT** — Implement in logical, testable components. Test each before integration.
-5. **VERIFY** — Run `bun run lint && npx tsc --noEmit` before delivery. Consider edge cases, accessibility, performance.
+5. **VERIFY** — Run `bun run lint && bun run typecheck && bun run test` before delivery. Consider edge cases, accessibility, performance.
 6. **DELIVER** — Complete handoff with documentation. Suggest next steps.
 
 ### Project-Specific Principles
@@ -117,7 +117,9 @@ bun run dev                 # http://localhost:3000
 | `bun run build`     | Production build (standalone output, copies static + public)  |
 | `bun run start`     | Start production server from `.next/standalone/server.js`     |
 | `bun run lint`      | ESLint (`eslint .`) — must be 0 errors before commit          |
-| `npx tsc --noEmit`  | TypeScript typecheck — must be 0 errors before commit         |
+| `bun run typecheck` | TypeScript typecheck (`tsc --noEmit`) — must be 0 errors      |
+| `bun run test`      | Vitest unit tests (run once, CI-friendly)                     |
+| `bun run test:watch`| Vitest in watch mode (local dev)                              |
 | `bun run db:push`   | Push Prisma schema → SQLite (dev only)                        |
 | `bun run db:generate` | Regenerate Prisma Client after schema changes               |
 | `bun run db:migrate` | Create + apply a migration (Postgres prod)                   |
@@ -125,7 +127,12 @@ bun run dev                 # http://localhost:3000
 
 **Quality gate before every commit:**
 ```bash
-bun run lint && npx tsc --noEmit
+bun run lint && bun run typecheck && bun run test
+```
+
+**Full pre-ship gate (also run by CI on push/PR):**
+```bash
+bun run lint && bun run typecheck && bun run test && bun run build
 ```
 
 ---
@@ -134,7 +141,24 @@ bun run lint && npx tsc --noEmit
 
 ### Current state
 
-No test framework is wired up yet (Vitest + Playwright are planned but not installed). For now, manual verification via `agent-browser`:
+**Vitest** is installed and wired up. The priority test surface is the First-Class-Free validation logic (PAD §8.2), which lives in `src/lib/first-class-validation.ts` (extracted from the server action so it can be unit-tested in isolation — see "Error Handling & Debugging" below for the `'use server'` gotcha that forced this extraction).
+
+**22 unit tests** across 3 files in `src/tests/unit/`:
+
+| File | Tests | Coverage |
+| ---- | ----- | -------- |
+| `first-class.schema.test.ts` | 12 | Zod schema: happy path, name/email/notes/preferredDay validation, honeypot field |
+| `first-class.rate-limit.test.ts` | 5 | Per-IP sliding window: 3/hour limit, 4th blocked, per-IP isolation |
+| `first-class.honeypot.test.ts` | 5 | Bot detection: empty passes, non-empty rejected, whitespace rejected |
+
+**Config**: `vitest.config.ts` at project root. **Setup**: `src/tests/setup.ts` (stubs `window.matchMedia` for jsdom). **Alias**: `@` → `./src` (matches `tsconfig.json`).
+
+```bash
+bun run test          # run once (CI)
+bun run test:watch    # watch mode (local dev)
+```
+
+Manual verification via `agent-browser` is still used for visual/e2e checks (Playwright not yet installed):
 
 ```bash
 agent-browser open http://localhost:3000/
@@ -146,9 +170,9 @@ agent-browser snapshot -i                     # verify all 6 sections + form fie
 
 ### Planned
 
-- **Vitest** for unit tests on `src/lib/actions/first-class.ts` (Zod schema, rate limiter, honeypot).
-- **Playwright + @axe-core/playwright** for e2e + accessibility scans.
-- Test files co-located: `*.test.ts` next to the source.
+- **`@testing-library/react` + `@testing-library/jest-dom`** for component tests on `FirstClassFree.tsx`, `Schedule.tsx`, `Hero.tsx`. Add to `src/tests/setup.ts` when introduced.
+- **Playwright + @axe-core/playwright** for e2e + accessibility scans. A fresh `playwright.config.ts` should be written when Playwright is actually installed (the previous orphan config from another project was deleted).
+- Co-locate component tests as `*.test.tsx` next to the source.
 
 ---
 
@@ -167,12 +191,15 @@ ESLint config (`eslint.config.mjs`) extends `eslint-config-next/core-web-vitals`
 ### Pre-commit Checklist
 
 - [ ] `bun run lint` — 0 errors
-- [ ] `npx tsc --noEmit` — 0 errors
+- [ ] `bun run typecheck` — 0 errors
+- [ ] `bun run test` — all tests pass
+- [ ] `bun run build` — succeeds (run before PR, not every commit)
 - [ ] No `console.log` left in committed code (dev log only)
 - [ ] No raw hex colours in components — use design tokens
 - [ ] No `'use client'` on components that don't need it
 - [ ] Every interactive element has a `:focus-visible` ring
 - [ ] Animations respect `prefers-reduced-motion`
+- [ ] No orphan config files at project root (see §Error Handling & Debugging)
 
 ---
 
@@ -225,6 +252,11 @@ Rate limiter fails OPEN on Redis/memory outage — never block a real user becau
 - **Prisma query log**: `src/lib/db.ts` has `log: ['query']` in dev — every SQL query is logged.
 - **Browser errors**: `agent-browser errors` + `agent-browser console`.
 - **Hydration mismatch**: check for `typeof window === 'undefined'` guards in client components, or use `useSyncExternalStore` for external state.
+- **`Cannot find module 'X'` during `bun run build`**: almost always an **orphan config file** at project root referencing an uninstalled dependency. `next build` runs `tsc` over ALL `.ts`/`.tsx` files in the project (per `tsconfig.json` `include: ["**/*.ts", "**/*.tsx"]`), including config files. If a config file imports a dep that isn't in `package.json`, the build fails. **Fix**: delete the orphan config file, or add the dep, or exclude the file in `tsconfig.json`. Past victims: `drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, `vitest.config.ts` (all were orphans from a previous project and were deleted).
+- **`Server Actions must be async functions` build error**: a `'use server'` module cannot export synchronous functions — Next.js requires every export to be an async Server Action. **Fix**: move pure sync logic (Zod schemas, rate limiters, hash functions) to a separate non-`'use server'` module and import it. See `src/lib/first-class-validation.ts` for the canonical pattern.
+- **`react-hooks/set-state-in-effect` lint error**: do NOT silence it in `eslint.config.mjs`. Use `useSyncExternalStore` for external state (media queries, localStorage, IntersectionObserver). See `src/hooks/use-reduced-motion.ts` and `src/hooks/use-mobile.ts` for the canonical pattern. Note: the severity of this rule depends on the `eslint-plugin-react-hooks` version — `bun.lock` may pin a less strict version than `pnpm-lock.yaml`, so the error may appear/disappear depending on which lockfile is used. The fix is the same regardless.
+- **Prisma `P2002` on form submit**: Unique constraint on `email`. The server action handles this and returns a warm `DUPLICATE` message — not a bug.
+- **Prisma migration drift (`prisma migrate dev` fails with "Drift detected")**: run `bun run db:reset` (drops + recreates the DB from migrations), then `bun run db:migrate`. This is safe in dev (SQLite). Never run `db:reset` in production.
 
 ---
 
@@ -261,13 +293,20 @@ src/
 │   │                            # LinenGrain, HomeChrome (client orchestrator)
 │   ├── sections/                # Hero, Practices, Teachers, Schedule,
 │   │                            # FirstClassFree, SectionHead, Reveal
-│   └── ui/                      # shadcn/ui primitives (50+ components)
-├── hooks/                       # use-reduced-motion, use-reveal, use-breath-cycle
+│   └── ui/                      # shadcn/ui primitives (39 components — unused
+│                                # scaffold files were removed; see §Anti-Patterns)
+├── hooks/                       # use-reduced-motion, use-reveal, use-breath-cycle,
+│                                # use-mobile (all useSyncExternalStore)
 ├── lib/
-│   ├── actions/first-class.ts   # Server Action: Zod + honeypot + rate limit
+│   ├── actions/first-class.ts   # Server Action: honeypot + rate limit + persist
+│   ├── first-class-validation.ts # Pure logic: Zod schema, rate limiter, hashIp
+│   │                            # (extracted for unit testing — see §Error Handling)
 │   ├── data/                    # Static content (practices, teachers, schedule)
 │   ├── db.ts                    # Prisma client (global singleton)
 │   └── utils.ts                 # cn() helper
+├── tests/
+│   ├── setup.ts                 # Vitest global setup (matchMedia stub for jsdom)
+│   └── unit/                    # Unit tests (first-class.schema, rate-limit, honeypot)
 ```
 
 **Layering rule**: `app/` → `components/` → `hooks/` + `lib/`. Lower layers may never import from higher layers.
@@ -278,13 +317,15 @@ Teachers, practices, and the weekly schedule live in `src/lib/data/*.ts` as `rea
 
 ### Form handling
 
-The "First Class Free" form (`src/components/sections/FirstClassFree.tsx`) uses `useActionState` bound to `claimFirstClassAction`. The server action:
+The "First Class Free" form (`src/components/sections/FirstClassFree.tsx`) uses `useActionState` bound to `claimFirstClassAction`. The server action (`src/lib/actions/first-class.ts`) delegates validation to pure functions in `src/lib/first-class-validation.ts` (this extraction was forced by the `'use server'` sync-export gotcha — see §Error Handling & Debugging). The flow:
 
 1. **Honeypot check** — `company` field must be empty.
-2. **Rate limit** — 3 submissions/hour per IP, fail-open.
-3. **Zod validation** — name (2–80 chars), email, preferredDay (enum), notes (optional, ≤500 chars).
-4. **Persist** — `db.lead.create()` with `ipHash` (SHA-256, never raw IP).
+2. **Rate limit** — 3 submissions/hour per IP, fail-open. Logic in `first-class-validation.ts:checkRateLimit()`.
+3. **Zod validation** — name (2–80 chars), email, preferredDay (enum), notes (optional, ≤500 chars). Schema in `first-class-validation.ts:firstClassSchema`.
+4. **Persist** — `db.lead.create()` with `ipHash` (SHA-256, never raw IP). `hashIp()` lives in `first-class-validation.ts`.
 5. **Return** — discriminated union; client renders success state or inline errors.
+
+**Why the split**: `'use server'` modules forbid exporting synchronous functions — Next.js requires every export to be an async Server Action. The Zod schema and rate limiter are pure sync functions, so they cannot live in `first-class.ts`. They live in `first-class-validation.ts` (a regular module) and are imported by the server action. This also makes them unit-testable.
 
 ### Environment Variables
 
@@ -335,7 +376,7 @@ Defined in `src/app/globals.css` under `@theme inline {}`. The key ones:
 
 ## Anti-Patterns to Avoid
 
-- **Over-engineering** — don't add Auth.js v5, Stripe, Inngest, or Replicate unless the user explicitly asks. The original `yoga-studio` repo had them; this build deliberately omits them for a marketing site.
+- **Over-engineering** — don't add Auth.js v5, Stripe, Inngest, or Replicate unless the user explicitly asks. The original `yoga-studio` repo had them; this build deliberately omits them for a marketing site. (Note: `next-auth` was previously listed as an unused dependency in the PAD — it has now been **removed** from `package.json` entirely. Do not re-add it without explicit request.)
 - **Premature optimization** — measure before optimizing. The current LCP is the hero image; everything else is below the fold.
 - **Raw hex in components** — `bg-[#b16a48]` is forbidden. Use `bg-terracotta`.
 - **`'use client'` on shells** — section shells (`<Practices>`, `<Schedule>` parent) should be server components. Only the interactive leaf (`<ScheduleRow>` trigger) is a client component.
@@ -345,6 +386,11 @@ Defined in `src/app/globals.css` under `@theme inline {}`. The key ones:
 - **`as any` casts** — use wrapper functions or `unknown` + type guards.
 - **Adding more routes** — the `fullstack-dev` skill constraint says only `/` is user-visible. If a new route is needed, ask first.
 - **Slowing animations for reduced-motion** — DISABLE them entirely. Slowed animations can trigger vestibular disorders.
+- **Orphan config files at project root** — `next build` type-checks ALL `.ts`/`.tsx` files via `tsconfig.json`. A config file that imports an uninstalled dependency (e.g. `drizzle-kit`, `@playwright/test`, `vitest` before it was installed) will break the build with `Cannot find module`. If you add a config file, ensure its dependencies are in `package.json`. The project previously had 4 orphan configs (`drizzle.config.ts`, `playwright.config.ts`, `playwright-live.config.ts`, and a stale `vitest.config.ts` from another project) — all deleted.
+- **Exporting sync functions from `'use server'` modules** — Next.js requires all exports from a `'use server'` file to be async Server Actions. A Zod schema, rate limiter, or hash function is sync and cannot live there. **Fix**: extract pure logic to a sibling non-`'use server'` module (see `src/lib/first-class-validation.ts`). This also makes the logic unit-testable.
+- **Silencing `react-hooks/set-state-in-effect`** — do NOT add `"react-hooks/set-state-in-effect": "off"` to `eslint.config.mjs`. Use `useSyncExternalStore` instead. The rule exists to prevent cascading renders.
+- **Re-adding removed scaffold dependencies** — 26 unused dependencies were removed from `package.json` (including `next-auth`, `recharts`, `framer-motion`, `@dnd-kit/*`, `@tanstack/*`, `zustand`, etc.). Do NOT re-add them via `bun add` without confirming they're actually used. The removed shadcn ui components (`chart`, `sonner`, `carousel`, `calendar`, `form`, `resizable`, `input-otp`, `command`, `drawer`) were also deleted — if you need one, re-add it via `bunx shadcn@latest add <component>` (which will also re-add its dependencies).
+- **Unjustified major version bumps** — `recharts` was bumped from `^2.15.4` to `^3.9.1` without justification, causing a build-breaking type error in `chart.tsx` (recharts 3.x changed the `payload` prop type). It was reverted. Never bump a major version without reading the changelog and verifying the consuming code still compiles.
 
 ---
 
@@ -352,9 +398,11 @@ Defined in `src/app/globals.css` under `@theme inline {}`. The key ones:
 
 You are successful when:
 
-- `bun run lint` and `npx tsc --noEmit` are both clean.
+- `bun run lint`, `bun run typecheck`, and `bun run test` are all clean.
+- `bun run build` succeeds (4 routes: `/`, `/_not-found`, `/api`, `/api/health`).
 - The homepage renders at http://localhost:3000 with no console errors.
 - All 6 sections are present in the accessibility tree with meaningful labels.
 - The form submits, persists a `Lead` row, and shows the "Thank you." state.
 - The schedule accordion expands/collapses with keyboard (Tab + Enter/Space).
 - Lighthouse Performance ≥ 85, Accessibility = 100.
+- CI passes on push and PR (`.github/workflows/ci.yml` runs lint + typecheck + test + build).
