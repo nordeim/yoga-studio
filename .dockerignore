@@ -1,0 +1,75 @@
+# =============================================================================
+# Stillwater · Yoga Studio — .dockerignore
+# =============================================================================
+# Keeps the Docker build context small by excluding files that aren't needed
+# inside the container. This speeds up `docker build` (less to send to the
+# daemon) and prevents host-side state from leaking into the image.
+# =============================================================================
+
+# Version control + metadata
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (reinstalled inside the container for reproducibility)
+node_modules
+
+# Build outputs
+.next
+out
+build
+dist
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files (mounted via env_file or -e flags, never baked into image)
+.env
+.env.*
+!.env.example
+
+# Logs + runtime state
+*.log
+dev.log
+server.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Databases (SQLite file — created at runtime via prisma db push)
+db/
+*.db
+*.db-journal
+
+# Editor + OS cruft
+.DS_Store
+Thumbs.db
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker meta (don't ship compose files inside the image)
+Dockerfile
+Dockerfile.dev
+docker-compose*.yml
+.dockerignore
+
+# Documentation (not needed at runtime)
+README.md
+AGENTS.md
+CLAUDE.md
+stillwater_SKILL.md
+Project_Architecture_Document.md
+docs/
+
+# Project-specific audit folders (not part of the app)
+yoga-studio
+skills
+upload
+tool-results
+download
+scripts
+examples
+mini-services

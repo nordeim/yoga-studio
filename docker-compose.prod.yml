@@ -1,21 +1,28 @@
 # =============================================================================
-# StoryIntoVideo — Production Docker Compose
+# Stillwater · Yoga Studio — Production Docker Compose
 # =============================================================================
 #
-# NF-1 fix: Production deployment configuration.
+# Production deployment configuration. Defines ONLY the `web` service.
 #
-# This compose file defines ONLY the `web` service. Database (Neon Postgres)
-# and rate-limiting (Upstash Redis) are managed external services — they are
-# NOT defined here (unlike docker-compose-dev.yml which spins up local
-# postgres + redis for development).
+# Stillwater is a stateless marketing site — the only persistent state is the
+# SQLite database file (Lead model for form submissions). For production, the
+# SQLite file is stored in a named volume (db_data) that survives container
+# recreations.
+#
+# For higher-traffic deployments, migrate SQLite to Postgres by:
+#   1. Change `provider` to "postgresql" in prisma/schema.prisma
+#   2. Set DATABASE_URL to a postgresql:// URL
+#   3. Add a `postgres` service (see the original yoga-studio docker-compose
+#      for the pattern) or use a managed Postgres (Neon, Supabase, RDS)
+#   4. Run `bunx prisma migrate deploy` instead of `prisma db push`
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f web
+#   docker compose -f docker-compose.prod.yml down
 #
-# Env vars: mount .env.local (production values) via the env_file directive.
-# All 27 required env vars must be set — see .env.example for the full list.
-#
-# Deployment runbook: docs/DEPLOYMENT_RUNBOOK.md
+# Env vars: mount .env (production values) via env_file.
+# The only required var is DATABASE_URL — see .env.example.
 # =============================================================================
 
 services:
@@ -23,21 +30,35 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: yogatudio-web
+    container_name: stillwater-web
     restart: unless-stopped
     ports:
+      # Bind to loopback only — put a reverse proxy (Caddy, Nginx, Traefik)
+      # in front for TLS termination. For a single-container deploy without
+      # a reverse proxy, change to "3000:3000" to expose on all interfaces.
       - "127.0.0.1:3000:3000"
     env_file:
-      - .env.local
+      - .env
     environment:
       - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      # Named volume for the SQLite database — survives container recreation.
+      # The Dockerfile creates /app/db with correct ownership; this volume
+      # persists the file across `docker compose down` / `up`.
+      - db_data:/app/db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
-    # NOTE: No volumes needed — the app is stateless. All persistent state
-    # lives in Neon (DB), Upstash (Redis), and Cloudflare R2 (media).
-    # The /tmp directory is ephemeral and used only for FFmpeg intermediate
-    # files (cleaned up after each video assembly Step 6 run).
+    # NOTE: No other volumes needed — the app is stateless apart from the
+    # SQLite file. The standalone build output is baked into the image.
+
+# ==========================================================================
+# Named Volumes
+# ==========================================================================
+volumes:
+  db_data:
+    driver: local

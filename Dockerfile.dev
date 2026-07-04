@@ -1,37 +1,58 @@
 # syntax=docker.io/docker/dockerfile:1.7-labs
-# Stage 1: Base – install dependencies
-FROM node:24-alpine AS base
+# =============================================================================
+# Stillwater · Yoga Studio — Development Dockerfile
+# =============================================================================
+#
+# Single-stage development image with hot reload via Turbopack.
+# Source code is bind-mounted from the host (see docker-compose-dev.yml),
+# so this image only needs dependencies + the dev server entrypoint.
+#
+# Security:
+#   - Non-root user (stillwater, uid 1001)
+#   - Healthcheck hits / (200 = healthy)
+#
+# Usage (standalone, without compose):
+#   docker build -t stillwater-web:dev -f Dockerfile.dev .
+#   docker run -p 3000:3000 -v $(pwd):/app -v /app/node_modules \
+#     --env-file .env stillwater-web:dev
+# =============================================================================
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+# ── Stage 1: Base — install dependencies ─────────────────────────────────────
+FROM oven/bun:1-alpine AS base
 
-# Install system dependencies (curl for healthcheck, ffmpeg for video assembly)
-RUN apk add --no-cache curl ffmpeg
+# curl for the healthcheck.
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Copy package manifests and lockfile first for better caching
-COPY package.json pnpm-lock.yaml ./
+# Copy package manifests + lockfile first for better caching.
+COPY package.json bun.lock ./
 
-# Install all dependencies (including dev)
-RUN pnpm install --frozen-lockfile
+# Install all dependencies (including dev) via Bun.
+RUN bun install --frozen-lockfile
 
-# Stage 2: Development – non‑root user, start dev server
+# ── Stage 2: Development — non-root user, start dev server ───────────────────
 FROM base AS development
 
-# Create non‑root user (security best practice)
-RUN addgroup -g 1001 -S yogatudio && \
-    adduser -S yogatudio -G yogatudio -u 1001 && \
-    chown -R yogatudio:yogatudio /app
+# Create a non-root user (security best practice).
+RUN addgroup -g 1001 -S stillwater && \
+    adduser -S stillwater -G stillwater -u 1001 && \
+    mkdir -p /app/db && \
+    chown -R stillwater:stillwater /app
 
-USER yogatudio
+USER stillwater
 
-# Expose Next.js default port
+# Expose Next.js default port.
 EXPOSE 3000
 
-# Healthcheck — hits the marketing page (200 = healthy)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+# Healthcheck — hits the homepage (200 = healthy).
+# In dev, /api/health may flap as the database is created/migrated, so the
+# simpler homepage check is more stable for the dev container.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -f http://localhost:3000/ || exit 1
 
-# Start Next.js in development mode with Turbopack
-CMD ["pnpm", "dev", "--", "--hostname", "0.0.0.0"]
+# Start Next.js in development mode with Turbopack, bound to all interfaces
+# so the container is reachable from the host. `bun run dev` runs:
+#   next dev -p 3000 2>&1 | tee dev.log
+# We override the port binding with --hostname 0.0.0.0 for Docker.
+CMD ["bun", "run", "dev", "--", "--hostname", "0.0.0.0"]
