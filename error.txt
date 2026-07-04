@@ -1,0 +1,190 @@
+$ pnpm install
+Already up to date
+Done in 589ms using pnpm v11.9.0
+
+$ git diff package.json
+diff --git a/package.json b/package.json
+index faca771..7269024 100644
+--- a/package.json
++++ b/package.json
+@@ -69,7 +69,7 @@
+     "react-markdown": "^10.1.0",
+     "react-resizable-panels": "^3.0.3",
+     "react-syntax-highlighter": "^15.6.1",
+-    "recharts": "^2.15.4",
++    "recharts": "^3.9.1",
+     "sharp": "^0.34.3",
+     "sonner": "^2.0.6",
+     "tailwind-merge": "^3.3.1",
+
+$ env | grep DATABASE_URL
+DATABASE_URL=file:./db/stillwater.db
+
+$ pnpm db:push
+Already up to date
+Done in 588ms using pnpm v11.9.0
+$ prisma db push
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "stillwater.db" at "file:./db/stillwater.db"
+
+The database is already in sync with the Prisma schema.
+
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client in 433ms
+
+$ pnpm db:generate
+Already up to date
+Done in 586ms using pnpm v11.9.0
+$ prisma generate
+Prisma schema loaded from prisma/schema.prisma
+┌─────────────────────────────────────────────────────────┐
+│  Update available 6.19.3 -> 7.8.0                       │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client in 340ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Need your database queries to be 1000x faster? Accelerate offers you that and more: https://pris.ly/tip-2-accelerate
+
+$ pnpm db:migrate
+Already up to date
+Done in 588ms using pnpm v11.9.0
+$ prisma migrate dev
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "stillwater.db" at "file:./db/stillwater.db"
+
+Drift detected: Your database schema is not in sync with your migration history.
+
+The following is a summary of the differences between the expected database schema given your migrations files, and the actual schema of the database.
+
+It should be understood as the set of changes to get from the expected schema to the actual schema.
+
+If you are running this the first time on an existing database, please make sure to read this documentation page:
+https://www.prisma.io/docs/guides/database/developing-with-prisma-migrate/troubleshooting-development
+
+[+] Added tables
+  - Lead
+
+[*] Changed the `Lead` table
+  [+] Added index on columns (createdAt)
+  [+] Added index on columns (status)
+  [+] Added unique index on columns (email)
+
+We need to reset the SQLite database "stillwater.db" at "file:./db/stillwater.db"
+
+You may use prisma migrate reset to drop the development database.
+All data will be lost.
+[ELIFECYCLE] Command failed with exit code 130.
+
+$ pnpm db:reset
+Already up to date
+Done in 587ms using pnpm v11.9.0
+$ prisma migrate reset
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "stillwater.db" at "file:./db/stillwater.db"
+
+✔ Are you sure you want to reset your database? All data will be lost. … yes
+
+Database reset successful
+
+
+Running generate... (Use --skip-generate to skip the generators)
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client in 246ms
+
+$ pnpm db:migrate
+Already up to date
+Done in 594ms using pnpm v11.9.0
+$ prisma migrate dev
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "stillwater.db" at "file:./db/stillwater.db"
+
+✔ Enter a name for the new migration: … test
+Applying migration `20260704060757_test`
+
+The following migration(s) have been created and applied from new schema changes:
+
+prisma/migrations/
+  └─ 20260704060757_test/
+    └─ migration.sql
+
+Your database is now in sync with your schema.
+
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/.pnpm/@prisma+client@6.19.3_prisma@6.19.3_typescript@5.9.3__typescript@5.9.3/node_modules/@prisma/client in 201ms
+
+$ pnpm lint
+Already up to date
+Done in 588ms using pnpm v11.9.0
+$ eslint .
+
+/home/project/yoga-studio/src/components/ui/carousel.tsx
+  98:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/project/yoga-studio/src/components/ui/carousel.tsx:98:5
+   96 |   React.useEffect(() => {
+   97 |     if (!api) return
+>  98 |     onSelect(api)
+      |     ^^^^^^^^ Avoid calling setState() directly within an effect
+   99 |     api.on("reInit", onSelect)
+  100 |     api.on("select", onSelect)
+  101 |  react-hooks/set-state-in-effect
+
+/home/project/yoga-studio/src/hooks/use-mobile.ts
+  14:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/project/yoga-studio/src/hooks/use-mobile.ts:14:5
+  12 |     }
+  13 |     mql.addEventListener("change", onChange)
+> 14 |     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  15 |     return () => mql.removeEventListener("change", onChange)
+  16 |   }, [])
+  17 |  react-hooks/set-state-in-effect
+
+✖ 2 problems (2 errors, 0 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.
+
+---
+
+$ pnpm build
+Already up to date
+Done in 590ms using pnpm v11.9.0
+$ next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.6s
+  Running TypeScript  .Failed to type check.
+
+./drizzle.config.ts:2:30
+Type error: Cannot find module 'drizzle-kit' or its corresponding type declarations.
+
+  1 | import 'dotenv/config';
+> 2 | import { defineConfig } from 'drizzle-kit';
+    |                              ^
+  3 |
+  4 | /**
+  5 |  * Drizzle Kit configuration — used for `drizzle-kit generate` (create migrations)
+Next.js build worker exited with code: 1 and signal: null
+[ELIFECYCLE] Command failed with exit code 1.
+
