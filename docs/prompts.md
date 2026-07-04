@@ -10,6 +10,10 @@ Awesome meticulous job so far. Please keep up the good work. Now, please meticul
 
 ---
 
+Please create a `.env.example` that is customized for the current codebase. also adapt the `.env.local` for the current codebase. Next, meticulously plan to produce a guide on how deploy the codebase/application to containers. Finally, create an updated tar archive with the updated config and document files.
+
+---
+
 Awesome meticulous job so far. Please keep up the good work. Now, please meticulously plan to create a user deployment QuickStartGuide.md` to detail step-by-step commands to run to fully deploy the codebase starting from `git clone` GitHub repo, include the commands sequence to initialize and seed the database.
 Next, meticulously plan to create a tar archive of the entire (remediated) codebase, including the updated documentation but excluding the `node_modules` , `.next` , `skills` and `.git` folders, so I can download and use it to refresh my GitHub repo.
 
