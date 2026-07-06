@@ -1,12 +1,12 @@
 # Skills Catalog
 
-> **141 skills** organized into 10 categories. Each entry shows the skill name and a concise description of what it does and when to use it. Skills marked with `*` are external (outside `/home/pete/.pi/agent/skills/`).
+> **141 skills** organized into 10 categories. Each entry shows the skill name and a concise description of what it does and when to use it.
 
 ---
 
 ## 1. Frontend Development & UI Engineering
 
-478> **Skills for building, styling, and shipping production-grade web interfaces.**
+> **Skills for building, styling, and shipping production-grade web interfaces.**
 
 | Skill                                          | Description                                                                                                                                                                                                                                                                                                                                                                                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@
 | **react19-ts6-vite8-tailwindv4-mvp**           | MVP/production React 19 + Vite 8 + Tailwind v4. File-based routing, pnpm, Vitest + Playwright. Use for greenfield web apps with React + Vite (not Next.js).                                                                                                                                                                                                                                             |
 | **nextjs16-tailwind4**                         | Next.js 16 + React + Tailwind v4 with Framer Motion. Luxury-grade, avant-garde UI, OWASP 2025, Core Web Vitals, WCAG AAA. Use for distinctive marketing sites with animated motion.                                                                                                                                                                                                                     |
 | **nextjs16-react19-tailwind4-full-stack**      | Next.js 16 + React 19 + Tailwind v4 full-stack marketing + booking + memberships + admin. Drizzle ORM, Auth.js v5 JWT, Inngest, Stripe, Replicate SDXL, Cloudflare R2. 5-layer architecture, CSS-only animations, brutalist dark-mode, WCAG AAA, OWASP hardening, Vitest + Playwright. Use for production marketing sites, membership platforms, booking systems, or any Next.js 16 full-stack project. |
+| **nextjs16-react19-tailwindv4-trpcv11-drizzle-better-auth** | Next.js 16 + React 19 + Tailwind v4 + tRPC v11 + Drizzle ORM + Better Auth (replaces Auth.js v5) in Turborepo monorepo. 50+ anti-patterns, 24 implementation lessons, production patterns (advisory-lock concurrency, idempotent webhooks, SSE streaming, fail-open rate limiting). Anti-generic avant-garde design, WCAG AAA, OWASP 2025, 8-gate CI/CD, TDD regression verification. Use for full-stack Next.js 16 SaaS with tRPC, Drizzle, and Better Auth. |
 | **nextjs-react-expert**                        | Next.js 16 + React 19 performance (Vercel Engineering). 57 rules: waterfall elimination, bundle size, RSC streaming, Turbopack, React Compiler, Core Web Vitals. Use when profiling or optimizing production React/Next.js apps.                                                                                                                                                                        |
 | **super-frontend-design**                      | Master skill: anti-generic strategy, Next.js 16 + React + Tailwind v4, App Router Server Components, design systems, Vercel-grade performance, WCAG AAA.                                                                                                                                                                                                                                                |
 | **tailwind-patterns**                          | Tailwind CSS v4 CSS-first `@theme` config, container queries, design tokens, modern utility patterns.                                                                                                                                                                                                                                                                                                   |
@@ -30,6 +31,8 @@
 | **nextjs16-react19-tailwind4-auth5-video-gen** | Production Next.js 16 + React + Tailwind v4 SaaS with Drizzle ORM, Auth.js v5, Inngest, Stripe, R2, AI pipeline (OpenAI/Replicate/ElevenLabs). Comprehensive reference: 60+ lessons, audit history, ADRs, z-index maps, color tokens, debugging guides. Use for AI media generation, content platforms, or any full-stack Next.js SaaS.                                                                 |
 
 > **Cross-reference:** `web-frameworks` (Full-Stack) covers Next.js 16 App Router, Server Components, RSC, PPR — also relevant for frontend architecture decisions.
+>
+> **Auth library selection:** `authjs-vs-better-auth` (Full-Stack) compares Auth.js v5 and Better Auth for Next.js 16 — use when an auth decision is needed alongside any of the above skills.
 
 ---
 
@@ -48,6 +51,7 @@
 | **image-understand**          | Image analysis via z-ai-web-dev-sdk: OCR, object detection, classification. PNG/JPEG/GIF/WebP/BMP.                                                  |
 | **image-search**              | ZAI in-house image search. Retrieve real images with optional captions, OSS-hosted direct URLs.                                                     |
 | **web-shader-extractor**      | Extract WebGL/Canvas/Shader effects from live pages, deobfuscate, and port to standalone native JS projects.                                        |
+| **comfyui-workflow-scaffold** | Create valid ComfyUI workflow JSON templates for Apple Silicon image generation. Scaffold LoRA/ControlNet/VAE nodes, validate Mac MPS/MLX compatibility. |
 
 > **Cross-reference:** `aesthetic` and `visual-design-foundations` are also highly relevant to frontend development (Category 1).
 
@@ -61,6 +65,7 @@
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **fullstack-dev**               | Next.js 16 + React 19 + TypeScript strict + Tailwind v4 + shadcn/ui + Prisma ORM. App Router, Server Components, API routes, WebSocket/Socket.io, full project scaffolding.                                                                                                  |
 | **nextjs16-react19-postgres17** | Next.js 16 + PostgreSQL 17: Drizzle ORM, BullMQ (Redis), Auth.js v5, Vercel AI SDK, RSS/Atom ingestion, web push. 5-layer architecture, PPR/cacheComponents, CSS Subgrid, 3-layer AI provenance. Use for news/content SaaS with job queues, AI pipelines, and RSS ingestion. |
+| **authjs-vs-better-auth**       | Auth.js v5 vs Better Auth for Next.js 16. Side-by-side code diffs, database schema mapping, proxy.ts route protection. Use when choosing an auth library, migrating between auth solutions, or debugging Next.js 16 auth compatibility. |
 | **web-frameworks**              | Next.js 16 + React 19 (App Router, Server Components, RSC, PPR, cacheComponents, async params) + Turborepo + RemixIcon (3100+ SVG icons).                                                                                                                                    |
 | **api-and-interface-design**    | Stable API and interface design. REST/GraphQL endpoints, type contracts, module boundaries.                                                                                                                                                                                  |
 | **api-patterns**                | API design: REST vs GraphQL vs tRPC, response formats, versioning, pagination.                                                                                                                                                                                               |
@@ -236,8 +241,6 @@
 | **using-agent-skills**               | Meta-skill for discovering and invoking the right skill for any task.                                                            |
 | **pi-agent-customize-system-prompt** | Customize the Pi Agent system prompt. Add custom tools, workflow instructions.                                                   |
 | **tools-cli**                        | Standalone CLI for file operations (read/glob/grep/edit/write) without a full Claude session.                                    |
-| **microsoft-foundry** *              | Deploy/manage Azure Foundry agents: Docker build, ACR push, hosted agents, batch/continuous eval, prompt optimization.           |
-| **librarian** *                      | Research open-source libraries with evidence-backed answers and GitHub permalinks. Cite exact lines of code.                     |
 | **memory-architect**                 | Bootstrap/audit/recover OpenClaw 3-layer memory (workspace files, LCM database, QMD semantic index).                             |
 | **memory-architecture**              | OpenClaw memory system architecture reference. Setup, troubleshooting, workspace/LCM/QMD interaction.                            |
 | **design**                           | Router for design-related HTML artifact tasks. Delegates to the correct artifact skill.                                          |
@@ -249,17 +252,17 @@
 
 | #   | Category                                       | Count   |
 | --- | ---------------------------------------------- | ------- |
-| 1   | Frontend Development & UI Engineering          | 18      |
-| 2   | Design Artifacts & Visual Creation             | 9       |
-| 3   | Full-Stack & Backend Development               | 9       |
+| 1   | Frontend Development & UI Engineering          | 19      |
+| 2   | Design Artifacts & Visual Creation             | 10      |
+| 3   | Full-Stack & Backend Development               | 10      |
 | 4   | AI / ML / Multimodal SDK Skills                | 8       |
 | 5   | Testing, QA & Performance                      | 14      |
 | 6   | Code Quality, Security & Architecture          | 13      |
 | 7   | Planning, Workflow & Project Management        | 21      |
 | 8   | Documentation & Content Creation               | 14      |
 | 9   | Career, Learning & Personal Development        | 14      |
-| 10  | DevOps, Infrastructure & External Integrations | 21      |
-|     | **Total**                                      | **141** |
+| 10  | DevOps, Infrastructure & External Integrations | 19      |
+|     | **Total**                                      | **142** |
 
 ---
 
@@ -278,3 +281,5 @@
 - Major project updates → `to-distill-project-into-skill` for comprehensive reference
 - Next.js 16 + React + Tailwind v4 SaaS with AI pipeline → `nextjs16-react19-tailwind4-auth5-video-gen`
 - Next.js 16 + React + Tailwind v4 full-stack marketing/booking/memberships → `nextjs16-react19-tailwind4-full-stack`
+- Next.js 16 + React + Tailwind v4 + tRPC + Drizzle + Better Auth → `nextjs16-react19-tailwindv4-trpcv11-drizzle-better-auth`
+- Choosing between Auth.js v5 and Better Auth → `authjs-vs-better-auth`
